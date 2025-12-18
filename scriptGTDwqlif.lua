@@ -14,6 +14,164 @@ AutoFarm.running = false
 AutoFarm.thread = nil
 AutoFarm.connections = {}
 AutoFarm.scheduledTasks = {}
+AutoFarm.antiAFKEnabled = true  -- Анти-АФК включен по умолчанию
+AutoFarm.antiAFKThread = nil
+
+-- Функция для анти-АФК системы
+local function setupAntiAFK()
+    if not AutoFarm.antiAFKEnabled then return end
+    
+    print("[Анти-АФК] Система активируется...")
+    
+    -- Отключаем стандартный анти-афк Roblox
+    local Players = game:GetService("Players")
+    local VirtualInputManager = game:GetService("VirtualInputManager")
+    local UserInputService = game:GetService("UserInputService")
+    
+    -- Сохраняем стандартный анти-афк
+    local player = Players.LocalPlayer
+    local character = player.Character or player.CharacterAdded:Wait()
+    local humanoid = character:WaitForChild("Humanoid")
+    
+    -- Создаем анти-афк действия
+    local antiAFKActions = {
+        -- Движение камеры
+        cameraMovement = function()
+            local currentCamera = workspace.CurrentCamera
+            local currentCF = currentCamera.CFrame
+            local newCF = currentCF * CFrame.Angles(0, math.rad(1), 0)
+            currentCamera.CFrame = newCF
+        end,
+        
+        -- Нажатие клавиш
+        keyPress = function()
+            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Space, false, game)
+            task.wait(0.05)
+            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Space, false, game)
+        end,
+        
+        -- Движение мыши
+        mouseMovement = function()
+            local mouse = player:GetMouse()
+            local moveDistance = 10
+            mousemoverel(moveDistance, 0)
+            task.wait(0.1)
+            mousemoverel(-moveDistance, 0)
+        end
+    }
+    
+    -- Создаем плавное вращение камеры для лучшего анти-афк
+    local function smoothCameraRotation()
+        local camera = workspace.CurrentCamera
+        local rotationSpeed = 0.5  -- градусов в секунду
+        local totalRotation = 0
+        local maxRotation = 30
+        
+        while AutoFarm.running and AutoFarm.antiAFKEnabled do
+            local deltaTime = 0.1
+            local rotationAmount = rotationSpeed * deltaTime
+            
+            -- Плавное вращение вперед-назад
+            if totalRotation >= maxRotation then
+                rotationSpeed = -rotationSpeed
+            elseif totalRotation <= -maxRotation then
+                rotationSpeed = -rotationSpeed
+            end
+            
+            local currentCF = camera.CFrame
+            local newCF = currentCF * CFrame.Angles(0, math.rad(rotationAmount), 0)
+            camera.CFrame = newCF
+            
+            totalRotation = totalRotation + rotationAmount
+            task.wait(deltaTime)
+        end
+    end
+    
+    -- Основной анти-АФК цикл
+    AutoFarm.antiAFKThread = task.spawn(function()
+        print("[Анти-АФК] Система запущена")
+        
+        -- Запускаем плавное вращение камеры
+        task.spawn(smoothCameraRotation)
+        
+        local actionCounter = 0
+        while AutoFarm.running and AutoFarm.antiAFKEnabled do
+            actionCounter = actionCounter + 1
+            
+            -- Каждые 30 секунд делаем разные действия
+            if actionCounter % 30 == 0 then
+                -- Движение камеры
+                antiAFKActions.cameraMovement()
+                
+                -- Каждую минуту нажимаем пробел
+                if actionCounter % 60 == 0 then
+                    antiAFKActions.keyPress()
+                    print("[Анти-АФК] Пробел нажат (", os.date("%H:%M:%S"), ")")
+                end
+                
+                -- Каждые 2 минуты движение мыши
+                if actionCounter % 120 == 0 then
+                    antiAFKActions.mouseMovement()
+                    print("[Анти-АФК] Мышь подвинута (", os.date("%H:%M:%S"), ")")
+                end
+                
+                print("[Анти-АФК] Активность обновлена (", os.date("%H:%M:%S"), ")")
+            end
+            
+            task.wait(1)  -- Проверяем каждую секунду
+        end
+        
+        print("[Анти-АФК] Система остановлена")
+    end)
+    
+    -- Также используем стандартный метод
+    local function standardAntiAFK()
+        local gc = getconnections or get_signal_connections
+        if gc then
+            for _, v in pairs(gc(player.Idled)) do
+                if v.Function then
+                    v:Disable()
+                elseif v.Disconnect then
+                    v:Disconnect()
+                end
+            end
+        end
+    end
+    
+    -- Пробуем стандартный метод
+    pcall(standardAntiAFK)
+    
+    -- Альтернативный метод: переподключение Idled события
+    local function reconnectAntiAFK()
+        player.Idled:Connect(function()
+            -- Вместо кика делаем виртуальное действие
+            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.W, false, game)
+            task.wait(0.05)
+            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.W, false, game)
+            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.S, false, game)
+            task.wait(0.05)
+            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.S, false, game)
+        end)
+    end
+    
+    pcall(reconnectAntiAFK)
+    
+    print("[Анти-АФК] ✅ Система полностью активирована")
+    print("[Анти-АФК] Камера будет плавно вращаться")
+    print("[Анти-АФК] Периодические нажатия клавиш")
+end
+
+-- Функция для остановки анти-АФК
+local function stopAntiAFK()
+    AutoFarm.antiAFKEnabled = false
+    
+    if AutoFarm.antiAFKThread then
+        task.cancel(AutoFarm.antiAFKThread)
+        AutoFarm.antiAFKThread = nil
+    end
+    
+    print("[Анти-АФК] Система отключена")
+end
 
 -- Авто-скип (включается автоматически)
 task.delay(2, function()
@@ -21,11 +179,18 @@ task.delay(2, function()
         remotes.ToggleAutoSkip:InvokeServer(true)
         print("[Система] Авто-скип включен")
     end)
+    
+    -- Запускаем анти-АФК через 3 секунды после старта
+    task.wait(1)
+    setupAntiAFK()
 end)
 
 -- Функция полной остановки и сброса
 function AutoFarm:StopEverything()
     print("[СИСТЕМА] Начинаем полную остановку...")
+    
+    -- Останавливаем анти-АФК
+    stopAntiAFK()
     
     -- Останавливаем основной поток
     self.running = false
@@ -286,8 +451,8 @@ local function createSimpleUI()
     screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     
     local mainFrame = Instance.new("Frame")
-    mainFrame.Size = UDim2.new(0, 280, 0, 200)
-    mainFrame.Position = UDim2.new(0.5, -140, 0.5, -100)
+    mainFrame.Size = UDim2.new(0, 320, 0, 230)  -- Увеличил высоту для анти-АФК статуса
+    mainFrame.Position = UDim2.new(0.5, -160, 0.5, -115)
     mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
     mainFrame.BorderSizePixel = 0
     mainFrame.Active = true
@@ -301,69 +466,95 @@ local function createSimpleUI()
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(1, 0, 0, 40)
     title.BackgroundTransparency = 1
-    title.Text = "🌿 АВТОФЕРМА"
+    title.Text = "🌿 АВТОФЕРМА + АНТИ-АФК"
     title.TextColor3 = Color3.fromRGB(0, 255, 170)
     title.Font = Enum.Font.GothamBold
-    title.TextSize = 20
+    title.TextSize = 18
     title.Parent = mainFrame
     
-    -- Статус
+    -- Статус фермы
     local statusLabel = Instance.new("TextLabel")
-    statusLabel.Size = UDim2.new(1, 0, 0, 30)
+    statusLabel.Size = UDim2.new(1, 0, 0, 25)
     statusLabel.Position = UDim2.new(0, 0, 0, 40)
     statusLabel.BackgroundTransparency = 1
-    statusLabel.Text = "Статус: Остановлено"
+    statusLabel.Text = "Ферма: Остановлено"
     statusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
     statusLabel.Font = Enum.Font.Gotham
-    statusLabel.TextSize = 14
+    statusLabel.TextSize = 12
     statusLabel.Parent = mainFrame
+    
+    -- Статус анти-АФК
+    local afkStatusLabel = Instance.new("TextLabel")
+    afkStatusLabel.Size = UDim2.new(1, 0, 0, 25)
+    afkStatusLabel.Position = UDim2.new(0, 0, 0, 65)
+    afkStatusLabel.BackgroundTransparency = 1
+    afkStatusLabel.Text = "Анти-АФК: ✅ Активен"
+    afkStatusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+    afkStatusLabel.Font = Enum.Font.Gotham
+    afkStatusLabel.TextSize = 12
+    afkStatusLabel.Parent = mainFrame
     
     -- Информация
     local infoLabel = Instance.new("TextLabel")
-    infoLabel.Size = UDim2.new(1, 0, 0, 50)
-    infoLabel.Position = UDim2.new(0, 0, 0, 70)
+    infoLabel.Size = UDim2.new(1, 0, 0, 60)
+    infoLabel.Position = UDim2.new(0, 0, 0, 90)
     infoLabel.BackgroundTransparency = 1
-    infoLabel.Text = "x2: юниты 2,11,19,28 сек (2:44)\nx3: юниты 2,11,19,21 сек (1:55)"
+    infoLabel.Text = "x2: юниты 2,11,19,28 сек (2:44)\nx3: юниты 2,11,19,21 сек (1:55)\nАнти-АФК: плавное вращение камеры"
     infoLabel.TextColor3 = Color3.fromRGB(170, 170, 255)
     infoLabel.Font = Enum.Font.Gotham
-    infoLabel.TextSize = 12
+    infoLabel.TextSize = 11
     infoLabel.TextWrapped = true
     infoLabel.Parent = mainFrame
     
     -- Кнопка запуска x2
     local btnStart2x = Instance.new("TextButton")
-    btnStart2x.Size = UDim2.new(0.9, 0, 0, 35)
-    btnStart2x.Position = UDim2.new(0.05, 0, 0.55, 0)
+    btnStart2x.Size = UDim2.new(0.9, 0, 0, 30)
+    btnStart2x.Position = UDim2.new(0.05, 0, 0.60, 0)
     btnStart2x.Text = "🚀 ЗАПУСТИТЬ x2"
     btnStart2x.Font = Enum.Font.GothamBold
-    btnStart2x.TextSize = 14
+    btnStart2x.TextSize = 13
     btnStart2x.TextColor3 = Color3.fromRGB(255, 255, 255)
     btnStart2x.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
     btnStart2x.AutoButtonColor = true
     
     local btn2xCorner = Instance.new("UICorner")
-    btn2xCorner.CornerRadius = UDim.new(0, 8)
+    btn2xCorner.CornerRadius = UDim.new(0, 6)
     btn2xCorner.Parent = btnStart2x
     
     -- Кнопка запуска x3
     local btnStart3x = Instance.new("TextButton")
-    btnStart3x.Size = UDim2.new(0.9, 0, 0, 35)
-    btnStart3x.Position = UDim2.new(0.05, 0, 0.75, 0)
+    btnStart3x.Size = UDim2.new(0.9, 0, 0, 30)
+    btnStart3x.Position = UDim2.new(0.05, 0, 0.72, 0)
     btnStart3x.Text = "⚡ ЗАПУСТИТЬ x3"
     btnStart3x.Font = Enum.Font.GothamBold
-    btnStart3x.TextSize = 14
+    btnStart3x.TextSize = 13
     btnStart3x.TextColor3 = Color3.fromRGB(255, 255, 255)
     btnStart3x.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
     btnStart3x.AutoButtonColor = true
     
     local btn3xCorner = Instance.new("UICorner")
-    btn3xCorner.CornerRadius = UDim.new(0, 8)
+    btn3xCorner.CornerRadius = UDim.new(0, 6)
     btn3xCorner.Parent = btnStart3x
+    
+    -- Кнопка переключения анти-АФК
+    local btnToggleAFK = Instance.new("TextButton")
+    btnToggleAFK.Size = UDim2.new(0.9, 0, 0, 25)
+    btnToggleAFK.Position = UDim2.new(0.05, 0, 0.84, 0)
+    btnToggleAFK.Text = "🔄 ВЫКЛ АНТИ-АФК"
+    btnToggleAFK.Font = Enum.Font.GothamBold
+    btnToggleAFK.TextSize = 11
+    btnToggleAFK.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btnToggleAFK.BackgroundColor3 = Color3.fromRGB(100, 100, 200)
+    btnToggleAFK.AutoButtonColor = true
+    
+    local afkCorner = Instance.new("UICorner")
+    afkCorner.CornerRadius = UDim.new(0, 5)
+    afkCorner.Parent = btnToggleAFK
     
     -- Кнопка остановки
     local btnStop = Instance.new("TextButton")
-    btnStop.Size = UDim2.new(0.9, 0, 0, 30)
-    btnStop.Position = UDim2.new(0.05, 0, 0.95, 0)
+    btnStop.Size = UDim2.new(0.9, 0, 0, 25)
+    btnStop.Position = UDim2.new(0.05, 0, 0.92, 0)
     btnStop.Text = "🛑 ПОЛНАЯ ОСТАНОВКА"
     btnStop.Font = Enum.Font.GothamBold
     btnStop.TextSize = 11
@@ -373,30 +564,60 @@ local function createSimpleUI()
     btnStop.Visible = false
     
     local stopCorner = Instance.new("UICorner")
-    stopCorner.CornerRadius = UDim.new(0, 6)
+    stopCorner.CornerRadius = UDim.new(0, 5)
     stopCorner.Parent = btnStop
     
     -- Функция обновления статуса
     local function updateStatus(isRunning, speed)
         if isRunning then
-            statusLabel.Text = "Статус: Работает (x" .. speed .. ")"
+            statusLabel.Text = "Ферма: Работает (x" .. speed .. ")"
             statusLabel.TextColor3 = Color3.fromRGB(0, 255, 100)
             btnStart2x.Visible = false
             btnStart3x.Visible = false
+            btnToggleAFK.Visible = false
             btnStop.Visible = true
             if speed == 2 then
-                infoLabel.Text = "Юниты: 2,11,19,28 сек\nДлительность: 2:44\nРаботает..."
+                infoLabel.Text = "Юниты: 2,11,19,28 сек\nДлительность: 2:44\nАнти-АФК активен"
             else
-                infoLabel.Text = "Юниты: 2,11,19,21 сек\nДлительность: 1:55\nРаботает..."
+                infoLabel.Text = "Юниты: 2,11,19,21 сек\nДлительность: 1:55\nАнти-АФК активен"
             end
         else
-            statusLabel.Text = "Статус: Остановлено"
+            statusLabel.Text = "Ферма: Остановлено"
             statusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
             btnStart2x.Visible = true
             btnStart3x.Visible = true
+            btnToggleAFK.Visible = true
             btnStop.Visible = false
-            infoLabel.Text = "x2: юниты 2,11,19,28 сек (2:44)\nx3: юниты 2,11,19,21 сек (1:55)"
+            infoLabel.Text = "x2: юниты 2,11,19,28 сек (2:44)\nx3: юниты 2,11,19,21 сек (1:55)\nАнти-АФК: плавное вращение камеры"
         end
+        
+        -- Обновляем статус анти-АФК
+        if AutoFarm.antiAFKEnabled then
+            afkStatusLabel.Text = "Анти-АФК: ✅ Активен"
+            afkStatusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+            btnToggleAFK.Text = "🔄 ВЫКЛ АНТИ-АФК"
+            btnToggleAFK.BackgroundColor3 = Color3.fromRGB(100, 100, 200)
+        else
+            afkStatusLabel.Text = "Анти-АФК: ❌ Выключен"
+            afkStatusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+            btnToggleAFK.Text = "🔄 ВКЛ АНТИ-АФК"
+            btnToggleAFK.BackgroundColor3 = Color3.fromRGB(200, 100, 100)
+        end
+    end
+    
+    -- Функция переключения анти-АФК
+    local function toggleAntiAFK()
+        AutoFarm.antiAFKEnabled = not AutoFarm.antiAFKEnabled
+        
+        if AutoFarm.antiAFKEnabled then
+            setupAntiAFK()
+            print("[Анти-АФК] Включен")
+        else
+            stopAntiAFK()
+            print("[Анти-АФК] Выключен")
+        end
+        
+        updateStatus(AutoFarm.running, AutoFarm.running and 2 or nil)
     end
     
     -- Функция запуска автоигры
@@ -453,6 +674,8 @@ local function createSimpleUI()
         end
     end)
     
+    btnToggleAFK.MouseButton1Click:Connect(toggleAntiAFK)
+    
     -- ИСПРАВЛЕННАЯ ФУНКЦИЯ ОСТАНОВКИ
     btnStop.MouseButton1Click:Connect(function()
         if AutoFarm.running then
@@ -497,6 +720,7 @@ local function createSimpleUI()
     
     btnStart2x.Parent = mainFrame
     btnStart3x.Parent = mainFrame
+    btnToggleAFK.Parent = mainFrame
     btnStop.Parent = mainFrame
     mainFrame.Parent = screenGui
     
@@ -525,10 +749,15 @@ local function main()
     AutoFarm.thread = nil
     AutoFarm.connections = {}
     AutoFarm.scheduledTasks = {}
+    AutoFarm.antiAFKEnabled = true
+    AutoFarm.antiAFKThread = nil
     
     -- Метод StopEverything с правильным self
     function AutoFarm:StopEverything()
         print("[СИСТЕМА] Начинаем полную остановку...")
+        
+        -- Останавливаем анти-АФК
+        stopAntiAFK()
         
         -- Останавливаем основной поток
         self.running = false
@@ -595,9 +824,16 @@ local function main()
     
     print("✅ Автоферма загружена!")
     print("==========================================")
-    print("🌿 GARDEN TOWER DEFENSE - АВТОФЕРМА")
+    print("🌿 GARDEN TOWER DEFENSE - АВТОФЕРМА + АНТИ-АФК")
     print("==========================================")
-    print("x2 Скорость:")
+    print("⚡ АНТИ-АФК СИСТЕМА:")
+    print("• Плавное вращение камеры (автоматически)")
+    print("• Периодические нажатия клавиш")
+    print("• Движение мыши")
+    print("• Отключение стандартного кика")
+    print("• Активируется автоматически при запуске")
+    print("")
+    print("🎮 x2 Скорость:")
     print("• 2 секунды - Юнит 1")
     print("• 11 секунд - Юнит 2")
     print("• 19 секунд - Юнит 3")
@@ -605,18 +841,22 @@ local function main()
     print("• Длительность игры: 2:44 (164 реальных секунды)")
     print("• Ожидание после 4-го юнита: 136 секунд")
     print("")
-    print("x3 Скорость:")
+    print("⚡ x3 Скорость:")
     print("• 2 секунды - Юнит 1")
     print("• 11 секунд - Юнит 2")
     print("• 19 секунд - Юнит 3")
     print("• 21 секунда - Юнит 4")
-    print("• Длительность игры: 1:55 (115 реальных секунд) ← УВЕЛИЧЕНО НА 21 СЕКУНДУ")
+    print("• Длительность игры: 1:55 (115 реальных секунд)")
     print("• Ожидание после 4-го юнита: 94 секунды")
     print("")
-    print("Управление:")
+    print("🔄 Управление:")
     print("• 🚀 ЗАПУСТИТЬ x2 - автоигра на x2 скорости")
     print("• ⚡ ЗАПУСТИТЬ x3 - автоигра на x3 скорости")
+    print("• 🔄 ВКЛ/ВЫКЛ АНТИ-АФК - переключение защиты")
     print("• 🛑 ПОЛНАЯ ОСТАНОВКА - полный сброс скрипта")
+    print("")
+    print("⚠️ Анти-АФК автоматически включен!")
+    print("📅 Логи активности в консоли каждую минуту")
     print("")
     print("После остановки нужно перезапустить скрипт!")
     print("==========================================")
