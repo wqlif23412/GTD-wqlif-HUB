@@ -14,164 +14,46 @@ AutoFarm.running = false
 AutoFarm.thread = nil
 AutoFarm.connections = {}
 AutoFarm.scheduledTasks = {}
-AutoFarm.antiAFKEnabled = true  -- Анти-АФК включен по умолчанию
-AutoFarm.antiAFKThread = nil
 
--- Функция для анти-АФК системы
-local function setupAntiAFK()
-    if not AutoFarm.antiAFKEnabled then return end
-    
-    print("[Анти-АФК] Система активируется...")
-    
-    -- Отключаем стандартный анти-афк Roblox
-    local Players = game:GetService("Players")
-    local VirtualInputManager = game:GetService("VirtualInputManager")
-    local UserInputService = game:GetService("UserInputService")
-    
-    -- Сохраняем стандартный анти-афк
-    local player = Players.LocalPlayer
-    local character = player.Character or player.CharacterAdded:Wait()
-    local humanoid = character:WaitForChild("Humanoid")
-    
-    -- Создаем анти-афк действия
-    local antiAFKActions = {
-        -- Движение камеры
-        cameraMovement = function()
-            local currentCamera = workspace.CurrentCamera
-            local currentCF = currentCamera.CFrame
-            local newCF = currentCF * CFrame.Angles(0, math.rad(1), 0)
-            currentCamera.CFrame = newCF
-        end,
-        
-        -- Нажатие клавиш
-        keyPress = function()
-            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Space, false, game)
-            task.wait(0.05)
-            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Space, false, game)
-        end,
-        
-        -- Движение мыши
-        mouseMovement = function()
-            local mouse = player:GetMouse()
-            local moveDistance = 10
-            mousemoverel(moveDistance, 0)
-            task.wait(0.1)
-            mousemoverel(-moveDistance, 0)
-        end
+-- Данные для размещения - ТОЛЬКО 4 ЮНИТА
+local placementsData = {
+    {
+        CF = "109.055374, 1.24449992, -94.5933304, 0.924202919, 0, -0.381901979, -0, 1.00000012, -0, 0.381902039, 0, 0.9242028",
+        Type = "PlaceUnit",
+        PathIndex = 1,
+        Position = "109.05537414550781, 1.244499921798706, -94.59333038330078",
+        ID = 1,
+        Time = 2,
+        Unit = "unit_rafflesia"
+    },
+    {
+        CF = "106.745476, 1.24417794, 87.8872986, -0.830875754, -0.00013255376, -0.556458056, 7.27595761e-12, 1, -0.000238209774, 0.556458116, -0.000197922724, -0.830875695",
+        Type = "PlaceUnit",
+        PathIndex = 2,
+        Position = "106.74547576904297, 1.2441779375076294, 87.88729858398438",
+        ID = 2,
+        Time = 16,
+        Unit = "unit_rafflesia"
+    },
+    {
+        CF = "-64.3955765, 1.2441957, 89.0993805, -0.556458056, 9.89613545e-05, 0.830875695, -0, 1, -0.000119104887, -0.830875695, -6.62768725e-05, -0.556458056",
+        Type = "PlaceUnit",
+        PathIndex = 3,
+        Position = "-64.39557647705078, 1.2441956996917725, 89.09938049316406",
+        ID = 3,
+        Time = 22,
+        Unit = "unit_rafflesia"
+    },
+    {
+        CF = "-74.0376816, 1.24399996, -52.8071785, 0.707106829, 0, 0.707106769, -0, 1, -0, -0.707106829, 0, 0.707106769",
+        Type = "PlaceUnit",
+        PathIndex = 4,
+        Position = "-74.03768157958984, 1.24399995803833, -52.80717849731445",
+        ID = 4,
+        Time = 30,
+        Unit = "unit_rafflesia"
     }
-    
-    -- Создаем плавное вращение камеры для лучшего анти-афк
-    local function smoothCameraRotation()
-        local camera = workspace.CurrentCamera
-        local rotationSpeed = 0.5  -- градусов в секунду
-        local totalRotation = 0
-        local maxRotation = 30
-        
-        while AutoFarm.running and AutoFarm.antiAFKEnabled do
-            local deltaTime = 0.1
-            local rotationAmount = rotationSpeed * deltaTime
-            
-            -- Плавное вращение вперед-назад
-            if totalRotation >= maxRotation then
-                rotationSpeed = -rotationSpeed
-            elseif totalRotation <= -maxRotation then
-                rotationSpeed = -rotationSpeed
-            end
-            
-            local currentCF = camera.CFrame
-            local newCF = currentCF * CFrame.Angles(0, math.rad(rotationAmount), 0)
-            camera.CFrame = newCF
-            
-            totalRotation = totalRotation + rotationAmount
-            task.wait(deltaTime)
-        end
-    end
-    
-    -- Основной анти-АФК цикл
-    AutoFarm.antiAFKThread = task.spawn(function()
-        print("[Анти-АФК] Система запущена")
-        
-        -- Запускаем плавное вращение камеры
-        task.spawn(smoothCameraRotation)
-        
-        local actionCounter = 0
-        while AutoFarm.running and AutoFarm.antiAFKEnabled do
-            actionCounter = actionCounter + 1
-            
-            -- Каждые 30 секунд делаем разные действия
-            if actionCounter % 30 == 0 then
-                -- Движение камеры
-                antiAFKActions.cameraMovement()
-                
-                -- Каждую минуту нажимаем пробел
-                if actionCounter % 60 == 0 then
-                    antiAFKActions.keyPress()
-                    print("[Анти-АФК] Пробел нажат (", os.date("%H:%M:%S"), ")")
-                end
-                
-                -- Каждые 2 минуты движение мыши
-                if actionCounter % 120 == 0 then
-                    antiAFKActions.mouseMovement()
-                    print("[Анти-АФК] Мышь подвинута (", os.date("%H:%M:%S"), ")")
-                end
-                
-                print("[Анти-АФК] Активность обновлена (", os.date("%H:%M:%S"), ")")
-            end
-            
-            task.wait(1)  -- Проверяем каждую секунду
-        end
-        
-        print("[Анти-АФК] Система остановлена")
-    end)
-    
-    -- Также используем стандартный метод
-    local function standardAntiAFK()
-        local gc = getconnections or get_signal_connections
-        if gc then
-            for _, v in pairs(gc(player.Idled)) do
-                if v.Function then
-                    v:Disable()
-                elseif v.Disconnect then
-                    v:Disconnect()
-                end
-            end
-        end
-    end
-    
-    -- Пробуем стандартный метод
-    pcall(standardAntiAFK)
-    
-    -- Альтернативный метод: переподключение Idled события
-    local function reconnectAntiAFK()
-        player.Idled:Connect(function()
-            -- Вместо кика делаем виртуальное действие
-            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.W, false, game)
-            task.wait(0.05)
-            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.W, false, game)
-            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.S, false, game)
-            task.wait(0.05)
-            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.S, false, game)
-        end)
-    end
-    
-    pcall(reconnectAntiAFK)
-    
-    print("[Анти-АФК] ✅ Система полностью активирована")
-    print("[Анти-АФК] Камера будет плавно вращаться")
-    print("[Анти-АФК] Периодические нажатия клавиш")
-end
-
--- Функция для остановки анти-АФК
-local function stopAntiAFK()
-    AutoFarm.antiAFKEnabled = false
-    
-    if AutoFarm.antiAFKThread then
-        task.cancel(AutoFarm.antiAFKThread)
-        AutoFarm.antiAFKThread = nil
-    end
-    
-    print("[Анти-АФК] Система отключена")
-end
+}
 
 -- Авто-скип (включается автоматически)
 task.delay(2, function()
@@ -179,18 +61,11 @@ task.delay(2, function()
         remotes.ToggleAutoSkip:InvokeServer(true)
         print("[Система] Авто-скип включен")
     end)
-    
-    -- Запускаем анти-АФК через 3 секунды после старта
-    task.wait(1)
-    setupAntiAFK()
 end)
 
 -- Функция полной остановки и сброса
 function AutoFarm:StopEverything()
     print("[СИСТЕМА] Начинаем полную остановку...")
-    
-    -- Останавливаем анти-АФК
-    stopAntiAFK()
     
     -- Останавливаем основной поток
     self.running = false
@@ -219,7 +94,7 @@ function AutoFarm:StopEverything()
     self.scheduledTasks = {}
     
     -- Отключаем все соединения
-    print("[СИСТЕМА] Отключаем соединения...")
+    print("[СИСТЕМА] Отключаем все соединения...")
     for _, connection in pairs(self.connections) do
         if connection and connection.Disconnect then
             pcall(function()
@@ -336,42 +211,48 @@ local function startAutoGame(speed)
     -- Выбираем сложность
     local difficulty = "dif_apocalypse"
     
-    -- БАЗОВЫЕ РАЗМЕЩЕНИЯ (для x2 скорости)
-    local basePlacements = {
-        {targetTime = 2,   actualTime = -3, unit = "unit_rafflesia", cf = "108.478439, 1.24432266, -92.6322784, 0.981734037, -2.26239445e-05, -0.190258533, -0, 1, -0.000118911586, 0.190258533, 0.000116739553, 0.981734037", pathIndex = 1},
-        {targetTime = 11,  actualTime = 6,  unit = "unit_rafflesia", cf = "110.600975, 1.24414515, 97.3004379, -0.981734037, 2.26239445e-05, -0.190258533, -0, 1, 0.000118911586, 0.190258533, 0.000116739553, -0.981734037", pathIndex = 2},
-        {targetTime = 19,  actualTime = 14, unit = "unit_rafflesia", cf = "-97.5022354, 1.24399996, 89.5488358, -0, 0, 1, 0, 1, -0, -1, 0, -0", pathIndex = 3},
-        {targetTime = 28,  actualTime = 23, unit = "unit_rafflesia", cf = "-73.7794266, 1.24399996, -117.989304, 0.707106829, 0, 0.707106769, -0, 1, -0, -0.707106829, 0, 0.707106769", pathIndex = 4}
-    }
+    -- Рассчитываем времена для разных скоростей (ТОЛЬКО 4 ЮНИТА)
+    local basePlacements = {}
     
-    -- ПАРАМЕТРЫ ДЛЯ РАЗНЫХ СКОРОСТЕЙ
+    for _, placement in ipairs(placementsData) do
+        table.insert(basePlacements, {
+            targetTime = placement.Time,
+            actualTime = placement.Time - 5, -- компенсация 5 секунд задержки
+            unit = placement.Unit,
+            cf = placement.CF,
+            pathIndex = placement.PathIndex,
+            id = placement.ID
+        })
+    end
+    
+    -- ПАРАМЕТРЫ ДЛЯ РАЗНЫХ СКОРОСТЕЙ (все времена в РЕАЛЬНЫХ секундах)
     local speedSettings = {
-        [2] = {placements = basePlacements, gameDuration = 164, waitAfterLastUnit = 136},  -- 2:44
+        [2] = {
+            placements = basePlacements,
+            gameDuration = 137, -- 2:15 (140 РЕАЛЬНЫХ секунд)
+            waitAfterLastUnit = 140 -- 1140 - 15 (последний юнит на 15 реальной секунде: 30 / 2 = 15)
+        },
         
-        [3] = { -- МОДИФИЦИРОВАННЫЕ НАСТРОЙКИ ДЛЯ x3
-            placements = {
-                basePlacements[1],  -- 1-й юнит без изменений
-                basePlacements[2],  -- 2-й юнит без изменений
-                basePlacements[3],  -- 3-й юнит без изменений
-                -- ИЗМЕНЕН 4-й юнит:
-                {targetTime = 21,  actualTime = 18, unit = "unit_rafflesia", cf = "-73.7794266, 1.24399996, -117.989304, 0.707106829, 0, 0.707106769, -0, 1, -0, -0.707106829, 0, 0.707106769", pathIndex = 4}
-            },
-            -- ИЗМЕНЕНО: увеличение длительности на 21 секунду
-            -- Было: 94 секунды (1:34), стало: 115 секунд (1:55)
-            gameDuration = 115,  -- 1:55 (115 реальных секунд)
-            waitAfterLastUnit = 94  -- 115 - 21 = 94 секунды
+        [3] = {
+            placements = basePlacements,
+            gameDuration = 90, -- 1:30 (90 РЕАЛЬНЫХ секунд)
+            waitAfterLastUnit = 80 -- 90 - 10 (последний юнит на 10 реальной секунде: 30 / 3 = 10)
         }
     }
     
     -- Выбираем настройки по скорости
-    local settings = speedSettings[speed] or speedSettings[2]
+    local settings = speedSettings[speed]
     local placements = settings.placements
     local gameDuration = settings.gameDuration
     local waitAfterLastUnit = settings.waitAfterLastUnit
     
-    print("[НАСТРОЙКИ] Длительность игры: " .. gameDuration .. " сек (" .. math.floor(gameDuration/60) .. ":" .. string.format("%02d", gameDuration%60) .. ")")
-    print("[РАЗМЕЩЕНИЯ] 4-й юнит: на " .. placements[4].targetTime .. " секунде игры (через " .. placements[4].actualTime .. " сек)")
-    print("[РАСЧЕТ] Ожидание после 4-го юнита: " .. waitAfterLastUnit .. " секунд")
+    print("[НАСТРОЙКИ] Длительность игры: " .. gameDuration .. " реальных секунд (" .. math.floor(gameDuration/60) .. ":" .. string.format("%02d", gameDuration%60) .. ")")
+    print("[РАЗМЕЩЕНИЯ] Всего юнитов: " .. #placements)
+    for i, p in ipairs(placements) do
+        local realTime = p.targetTime / speed
+        print("[ЮНИТ " .. i .. "] На " .. p.targetTime .. " секунде игры (через " .. p.actualTime .. " сек)")
+    end
+    print("[РАСЧЕТ] Ожидание после последнего юнита: " .. waitAfterLastUnit .. " реальных секунд")
     
     while AutoFarm.running do
         print("[ЦИКЛ] Начало нового цикла (x" .. speed .. ")...")
@@ -379,9 +260,9 @@ local function startAutoGame(speed)
         remotes.PlaceDifficultyVote:InvokeServer(difficulty)
         print("[ЦИКЛ] Выбрана сложность: Apocalypse")
         
-        -- Ожидание 6 секунд для компенсации задержки
-        print("[ЦИКЛ] Ожидание 6 секунд (компенсация)...")
-        for i = 1, 6 do
+        -- Ожидание 5 секунд для компенсации задержки
+        print("[ЦИКЛ] Ожидание 5 секунд (компенсация)...")
+        for i = 1, 5 do
             if not AutoFarm.running then 
                 print("[ЦИКЛ] Прерывание во время ожидания")
                 return 
@@ -389,15 +270,8 @@ local function startAutoGame(speed)
             task.wait(1)
         end
         
-        -- Немедленно ставим первый юнит
-        if AutoFarm.running then
-            print("[РАЗМЕЩЕНИЕ] Ставим юнит 1 (targetTime: " .. placements[1].targetTime .. ")")
-            placeUnit(placements[1].cf, placements[1].unit, placements[1].pathIndex)
-        end
-        
-        -- Планируем остальные юниты (2, 3, 4)
-        for i = 2, 4 do
-            local p = placements[i]
+        -- Планируем все юниты (ТОЛЬКО 4)
+        for i, p in ipairs(placements) do
             if p.actualTime > 0 then
                 scheduleTask(p.actualTime, function()
                     if AutoFarm.running then
@@ -405,6 +279,12 @@ local function startAutoGame(speed)
                         placeUnit(p.cf, p.unit, p.pathIndex)
                     end
                 end, "unit_" .. i)
+            elseif p.actualTime <= 0 then
+                -- Если время отрицательное, ставим сразу
+                if AutoFarm.running then
+                    print("[РАЗМЕЩЕНИЕ] Ставим юнит " .. i .. " СРАЗУ (targetTime: " .. p.targetTime .. ")")
+                    placeUnit(p.cf, p.unit, p.pathIndex)
+                end
             end
         end
         
@@ -451,8 +331,8 @@ local function createSimpleUI()
     screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     
     local mainFrame = Instance.new("Frame")
-    mainFrame.Size = UDim2.new(0, 320, 0, 230)  -- Увеличил высоту для анти-АФК статуса
-    mainFrame.Position = UDim2.new(0.5, -160, 0.5, -115)
+    mainFrame.Size = UDim2.new(0, 320, 0, 200)
+    mainFrame.Position = UDim2.new(0.5, -160, 0.5, -100)
     mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
     mainFrame.BorderSizePixel = 0
     mainFrame.Active = true
@@ -466,7 +346,7 @@ local function createSimpleUI()
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(1, 0, 0, 40)
     title.BackgroundTransparency = 1
-    title.Text = "🌿 АВТОФЕРМА + АНТИ-АФК"
+    title.Text = "🌿 АВТОФЕРМА (4 юнита)"
     title.TextColor3 = Color3.fromRGB(0, 255, 170)
     title.Font = Enum.Font.GothamBold
     title.TextSize = 18
@@ -483,23 +363,12 @@ local function createSimpleUI()
     statusLabel.TextSize = 12
     statusLabel.Parent = mainFrame
     
-    -- Статус анти-АФК
-    local afkStatusLabel = Instance.new("TextLabel")
-    afkStatusLabel.Size = UDim2.new(1, 0, 0, 25)
-    afkStatusLabel.Position = UDim2.new(0, 0, 0, 65)
-    afkStatusLabel.BackgroundTransparency = 1
-    afkStatusLabel.Text = "Анти-АФК: ✅ Активен"
-    afkStatusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
-    afkStatusLabel.Font = Enum.Font.Gotham
-    afkStatusLabel.TextSize = 12
-    afkStatusLabel.Parent = mainFrame
-    
     -- Информация
     local infoLabel = Instance.new("TextLabel")
     infoLabel.Size = UDim2.new(1, 0, 0, 60)
-    infoLabel.Position = UDim2.new(0, 0, 0, 90)
+    infoLabel.Position = UDim2.new(0, 0, 0, 65)
     infoLabel.BackgroundTransparency = 1
-    infoLabel.Text = "x2: юниты 2,11,19,28 сек (2:44)\nx3: юниты 2,11,19,21 сек (1:55)\nАнти-АФК: плавное вращение камеры"
+    infoLabel.Text = "x2: 2,16,22,30 сек (2:15)\nx3: 2,16,22,30 сек (1:30)\nВсе времена - игровые секунды"
     infoLabel.TextColor3 = Color3.fromRGB(170, 170, 255)
     infoLabel.Font = Enum.Font.Gotham
     infoLabel.TextSize = 11
@@ -524,7 +393,7 @@ local function createSimpleUI()
     -- Кнопка запуска x3
     local btnStart3x = Instance.new("TextButton")
     btnStart3x.Size = UDim2.new(0.9, 0, 0, 30)
-    btnStart3x.Position = UDim2.new(0.05, 0, 0.72, 0)
+    btnStart3x.Position = UDim2.new(0.05, 0, 0.75, 0)
     btnStart3x.Text = "⚡ ЗАПУСТИТЬ x3"
     btnStart3x.Font = Enum.Font.GothamBold
     btnStart3x.TextSize = 13
@@ -536,25 +405,10 @@ local function createSimpleUI()
     btn3xCorner.CornerRadius = UDim.new(0, 6)
     btn3xCorner.Parent = btnStart3x
     
-    -- Кнопка переключения анти-АФК
-    local btnToggleAFK = Instance.new("TextButton")
-    btnToggleAFK.Size = UDim2.new(0.9, 0, 0, 25)
-    btnToggleAFK.Position = UDim2.new(0.05, 0, 0.84, 0)
-    btnToggleAFK.Text = "🔄 ВЫКЛ АНТИ-АФК"
-    btnToggleAFK.Font = Enum.Font.GothamBold
-    btnToggleAFK.TextSize = 11
-    btnToggleAFK.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btnToggleAFK.BackgroundColor3 = Color3.fromRGB(100, 100, 200)
-    btnToggleAFK.AutoButtonColor = true
-    
-    local afkCorner = Instance.new("UICorner")
-    afkCorner.CornerRadius = UDim.new(0, 5)
-    afkCorner.Parent = btnToggleAFK
-    
     -- Кнопка остановки
     local btnStop = Instance.new("TextButton")
     btnStop.Size = UDim2.new(0.9, 0, 0, 25)
-    btnStop.Position = UDim2.new(0.05, 0, 0.92, 0)
+    btnStop.Position = UDim2.new(0.05, 0, 0.90, 0)
     btnStop.Text = "🛑 ПОЛНАЯ ОСТАНОВКА"
     btnStop.Font = Enum.Font.GothamBold
     btnStop.TextSize = 11
@@ -574,50 +428,20 @@ local function createSimpleUI()
             statusLabel.TextColor3 = Color3.fromRGB(0, 255, 100)
             btnStart2x.Visible = false
             btnStart3x.Visible = false
-            btnToggleAFK.Visible = false
             btnStop.Visible = true
             if speed == 2 then
-                infoLabel.Text = "Юниты: 2,11,19,28 сек\nДлительность: 2:44\nАнти-АФК активен"
+                infoLabel.Text = "Юниты: 2,16,22,30 сек\nДлительность: 2:15\nОжидание после 4-го: 140 сек"
             else
-                infoLabel.Text = "Юниты: 2,11,19,21 сек\nДлительность: 1:55\nАнти-АФК активен"
+                infoLabel.Text = "Юниты: 2,16,22,30 сек\nДлительность: 1:30\nОжидание после 4-го: 80 сек"
             end
         else
             statusLabel.Text = "Ферма: Остановлено"
             statusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
             btnStart2x.Visible = true
             btnStart3x.Visible = true
-            btnToggleAFK.Visible = true
             btnStop.Visible = false
-            infoLabel.Text = "x2: юниты 2,11,19,28 сек (2:44)\nx3: юниты 2,11,19,21 сек (1:55)\nАнти-АФК: плавное вращение камеры"
+            infoLabel.Text = "x2: 2,16,22,30 сек (2:15)\nx3: 2,16,22,30 сек (1:30)\nВсе времена - игровые секунды"
         end
-        
-        -- Обновляем статус анти-АФК
-        if AutoFarm.antiAFKEnabled then
-            afkStatusLabel.Text = "Анти-АФК: ✅ Активен"
-            afkStatusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
-            btnToggleAFK.Text = "🔄 ВЫКЛ АНТИ-АФК"
-            btnToggleAFK.BackgroundColor3 = Color3.fromRGB(100, 100, 200)
-        else
-            afkStatusLabel.Text = "Анти-АФК: ❌ Выключен"
-            afkStatusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
-            btnToggleAFK.Text = "🔄 ВКЛ АНТИ-АФК"
-            btnToggleAFK.BackgroundColor3 = Color3.fromRGB(200, 100, 100)
-        end
-    end
-    
-    -- Функция переключения анти-АФК
-    local function toggleAntiAFK()
-        AutoFarm.antiAFKEnabled = not AutoFarm.antiAFKEnabled
-        
-        if AutoFarm.antiAFKEnabled then
-            setupAntiAFK()
-            print("[Анти-АФК] Включен")
-        else
-            stopAntiAFK()
-            print("[Анти-АФК] Выключен")
-        end
-        
-        updateStatus(AutoFarm.running, AutoFarm.running and 2 or nil)
     end
     
     -- Функция запуска автоигры
@@ -674,8 +498,6 @@ local function createSimpleUI()
         end
     end)
     
-    btnToggleAFK.MouseButton1Click:Connect(toggleAntiAFK)
-    
     -- ИСПРАВЛЕННАЯ ФУНКЦИЯ ОСТАНОВКИ
     btnStop.MouseButton1Click:Connect(function()
         if AutoFarm.running then
@@ -720,7 +542,6 @@ local function createSimpleUI()
     
     btnStart2x.Parent = mainFrame
     btnStart3x.Parent = mainFrame
-    btnToggleAFK.Parent = mainFrame
     btnStop.Parent = mainFrame
     mainFrame.Parent = screenGui
     
@@ -749,15 +570,10 @@ local function main()
     AutoFarm.thread = nil
     AutoFarm.connections = {}
     AutoFarm.scheduledTasks = {}
-    AutoFarm.antiAFKEnabled = true
-    AutoFarm.antiAFKThread = nil
     
     -- Метод StopEverything с правильным self
     function AutoFarm:StopEverything()
         print("[СИСТЕМА] Начинаем полную остановку...")
-        
-        -- Останавливаем анти-АФК
-        stopAntiAFK()
         
         -- Останавливаем основной поток
         self.running = false
@@ -778,7 +594,7 @@ local function main()
         self.scheduledTasks = {}
         
         -- Отключаем все соединения
-        print("[СИСТЕМА] Отключаем соединения...")
+        print("[СИСТЕМА] Отключаем все соединения...")
         for _, connection in pairs(self.connections) do
             if connection and connection.Disconnect then
                 pcall(function()
@@ -824,39 +640,28 @@ local function main()
     
     print("✅ Автоферма загружена!")
     print("==========================================")
-    print("🌿 GARDEN TOWER DEFENSE - АВТОФЕРМА + АНТИ-АФК")
+    print("🌿 GARDEN TOWER DEFENSE - АВТОФЕРМА")
     print("==========================================")
-    print("⚡ АНТИ-АФК СИСТЕМА:")
-    print("• Плавное вращение камеры (автоматически)")
-    print("• Периодические нажатия клавиш")
-    print("• Движение мыши")
-    print("• Отключение стандартного кика")
-    print("• Активируется автоматически при запуске")
+    print("🎮 x2 Скорость (4 юнита):")
+    print("• 2 секунды - Юнит 1 (PathIndex: 1)")
+    print("• 16 секунд - Юнит 2 (PathIndex: 2)")
+    print("• 22 секунды - Юнит 3 (PathIndex: 3)")
+    print("• 30 секунд - Юнит 4 (PathIndex: 4)")
+    print("• Ожидание после 4-го юнита: 140 реальных секунд")
+    print("• Общая длительность: 2:15 (140 реальных секунд)")
     print("")
-    print("🎮 x2 Скорость:")
-    print("• 2 секунды - Юнит 1")
-    print("• 11 секунд - Юнит 2")
-    print("• 19 секунд - Юнит 3")
-    print("• 28 секунд - Юнит 4")
-    print("• Длительность игры: 2:44 (164 реальных секунды)")
-    print("• Ожидание после 4-го юнита: 136 секунд")
-    print("")
-    print("⚡ x3 Скорость:")
-    print("• 2 секунды - Юнит 1")
-    print("• 11 секунд - Юнит 2")
-    print("• 19 секунд - Юнит 3")
-    print("• 21 секунда - Юнит 4")
-    print("• Длительность игры: 1:55 (115 реальных секунд)")
-    print("• Ожидание после 4-го юнита: 94 секунды")
+    print("⚡ x3 Скорость (4 юнита):")
+    print("• 2 секунды - Юнит 1 (PathIndex: 1)")
+    print("• 16 секунд - Юнит 2 (PathIndex: 2)")
+    print("• 22 секунды - Юнит 3 (PathIndex: 3)")
+    print("• 30 секунд - Юнит 4 (PathIndex: 4)")
+    print("• Ожидание после 4-го юнита: 80 реальных секунд")
+    print("• Общая длительность: 1:30 (90 реальных секунд)")
     print("")
     print("🔄 Управление:")
     print("• 🚀 ЗАПУСТИТЬ x2 - автоигра на x2 скорости")
     print("• ⚡ ЗАПУСТИТЬ x3 - автоигра на x3 скорости")
-    print("• 🔄 ВКЛ/ВЫКЛ АНТИ-АФК - переключение защиты")
     print("• 🛑 ПОЛНАЯ ОСТАНОВКА - полный сброс скрипта")
-    print("")
-    print("⚠️ Анти-АФК автоматически включен!")
-    print("📅 Логи активности в консоли каждую минуту")
     print("")
     print("После остановки нужно перезапустить скрипт!")
     print("==========================================")
