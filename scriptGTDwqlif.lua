@@ -14,43 +14,60 @@ AutoFarm.running = false
 AutoFarm.thread = nil
 AutoFarm.connections = {}
 AutoFarm.scheduledTasks = {}
+AutoFarm.currentMacro = 1 -- 1 = первый макрос, 2 = второй макрос
 
--- Данные для размещения - ТОЛЬКО 4 ЮНИТА
-local placementsData = {
+-- Первый макрос - 4 юнита (старые позиции)
+local macro1Data = {
     {
         CF = "109.055374, 1.24449992, -94.5933304, 0.924202919, 0, -0.381901979, -0, 1.00000012, -0, 0.381902039, 0, 0.9242028",
-        Type = "PlaceUnit",
         PathIndex = 1,
-        Position = "109.05537414550781, 1.244499921798706, -94.59333038330078",
-        ID = 1,
         Time = 2,
         Unit = "unit_rafflesia"
     },
     {
         CF = "106.745476, 1.24417794, 87.8872986, -0.830875754, -0.00013255376, -0.556458056, 7.27595761e-12, 1, -0.000238209774, 0.556458116, -0.000197922724, -0.830875695",
-        Type = "PlaceUnit",
         PathIndex = 2,
-        Position = "106.74547576904297, 1.2441779375076294, 87.88729858398438",
-        ID = 2,
-        Time = 16,
+        Time = 14,
         Unit = "unit_rafflesia"
     },
     {
         CF = "-64.3955765, 1.2441957, 89.0993805, -0.556458056, 9.89613545e-05, 0.830875695, -0, 1, -0.000119104887, -0.830875695, -6.62768725e-05, -0.556458056",
-        Type = "PlaceUnit",
         PathIndex = 3,
-        Position = "-64.39557647705078, 1.2441956996917725, 89.09938049316406",
-        ID = 3,
         Time = 22,
         Unit = "unit_rafflesia"
     },
     {
         CF = "-74.0376816, 1.24399996, -52.8071785, 0.707106829, 0, 0.707106769, -0, 1, -0, -0.707106829, 0, 0.707106769",
-        Type = "PlaceUnit",
         PathIndex = 4,
-        Position = "-74.03768157958984, 1.24399995803833, -52.80717849731445",
-        ID = 4,
         Time = 30,
+        Unit = "unit_rafflesia"
+    }
+}
+
+-- Второй макрос - 4 юнита (новые позиции, измененные тайминги)
+local macro2Data = {
+    {
+        CF = "108.549294, 1.24438035, -92.9884949, 0.981734097, -4.52478889e-05, -0.190258533, -3.63797881e-12, 1.00000012, -0.000237823173, 0.190258548, 0.000233479121, 0.981734037",
+        PathIndex = 1,
+        Time = 2,
+        Unit = "unit_rafflesia"
+    },
+    {
+        CF = "110.745071, 1.24402761, 98.0248947, -0.980287313, 2.34596082e-05, -0.197577298, -0, 1, 0.000118736352, 0.197577298, 0.000116395742, -0.980287313",
+        PathIndex = 2,
+        Time = 14,
+        Unit = "unit_rafflesia"
+    },
+    {
+        CF = "-93.1069794, 1.24399996, 89.5488358, -0, 0, 1, 0, 1, -0, -1, 0, -0",
+        PathIndex = 3,
+        Time = 20, -- ИЗМЕНЕНО: с 33 на 23 секунды
+        Unit = "unit_rafflesia"
+    },
+    {
+        CF = "-79.5390015, 1.24449992, -60.4018097, 0.922063351, 0, 0.387038946, -0, 1, -0, -0.387038946, 0, 0.922063351",
+        PathIndex = 4,
+        Time = 25, -- ИЗМЕНЕНО: с 45 на 29 секунд
         Unit = "unit_rafflesia"
     }
 }
@@ -74,14 +91,6 @@ function AutoFarm:StopEverything()
         print("[СИСТЕМА] Останавливаем основной поток...")
         local thread = self.thread
         self.thread = nil
-        
-        -- Пытаемся корректно остановить поток
-        task.spawn(function()
-            task.wait(0.1)
-            if coroutine.status(thread) ~= "dead" then
-                print("[СИСТЕМА] Принудительная остановка потока...")
-            end
-        end)
     end
     
     -- Отменяем все запланированные задачи
@@ -94,7 +103,7 @@ function AutoFarm:StopEverything()
     self.scheduledTasks = {}
     
     -- Отключаем все соединения
-    print("[СИСТЕМА] Отключаем все соединения...")
+    print("[СИСТЕМА] Отключаем соединения...")
     for _, connection in pairs(self.connections) do
         if connection and connection.Disconnect then
             pcall(function()
@@ -123,17 +132,7 @@ function AutoFarm:StopEverything()
     print("[СИСТЕМА] Скрипт полностью остановлен и сброшен")
     print("[СИСТЕМА] Перезапустите скрипт для нового запуска")
     
-    -- Завершаем скрипт
     return true
-end
-
--- Функция для отмены задачи
-local function cancelTask(taskId)
-    if AutoFarm.scheduledTasks[taskId] then
-        AutoFarm.scheduledTasks[taskId] = nil
-        return true
-    end
-    return false
 end
 
 -- Функция для планирования отменяемой задачи
@@ -203,119 +202,120 @@ end
 -- Функция автоигры
 local function startAutoGame(speed)
     print("[СИСТЕМА] Запуск автоигры x" .. speed .. " скорость...")
-    print("[СИСТЕМА] Статус работы: " .. tostring(AutoFarm.running))
     
-    -- Устанавливаем скорость
-    remotes.ChangeTickSpeed:InvokeServer(speed)
-    
-    -- Выбираем сложность
     local difficulty = "dif_apocalypse"
-    
-    -- Рассчитываем времена для разных скоростей (ТОЛЬКО 4 ЮНИТА)
-    local basePlacements = {}
-    
-    for _, placement in ipairs(placementsData) do
-        table.insert(basePlacements, {
-            targetTime = placement.Time,
-            actualTime = placement.Time - 5, -- компенсация 5 секунд задержки
-            unit = placement.Unit,
-            cf = placement.CF,
-            pathIndex = placement.PathIndex,
-            id = placement.ID
-        })
-    end
-    
-    -- ПАРАМЕТРЫ ДЛЯ РАЗНЫХ СКОРОСТЕЙ (все времена в РЕАЛЬНЫХ секундах)
-    local speedSettings = {
-        [2] = {
-            placements = basePlacements,
-            gameDuration = 137, -- 2:15 (140 РЕАЛЬНЫХ секунд)
-            waitAfterLastUnit = 140 -- 1140 - 15 (последний юнит на 15 реальной секунде: 30 / 2 = 15)
-        },
-        
-        [3] = {
-            placements = basePlacements,
-            gameDuration = 90, -- 1:30 (90 РЕАЛЬНЫХ секунд)
-            waitAfterLastUnit = 80 -- 90 - 10 (последний юнит на 10 реальной секунде: 30 / 3 = 10)
-        }
-    }
-    
-    -- Выбираем настройки по скорости
-    local settings = speedSettings[speed]
-    local placements = settings.placements
-    local gameDuration = settings.gameDuration
-    local waitAfterLastUnit = settings.waitAfterLastUnit
-    
-    print("[НАСТРОЙКИ] Длительность игры: " .. gameDuration .. " реальных секунд (" .. math.floor(gameDuration/60) .. ":" .. string.format("%02d", gameDuration%60) .. ")")
-    print("[РАЗМЕЩЕНИЯ] Всего юнитов: " .. #placements)
-    for i, p in ipairs(placements) do
-        local realTime = p.targetTime / speed
-        print("[ЮНИТ " .. i .. "] На " .. p.targetTime .. " секунде игры (через " .. p.actualTime .. " сек)")
-    end
-    print("[РАСЧЕТ] Ожидание после последнего юнита: " .. waitAfterLastUnit .. " реальных секунд")
+    local baseDelay = 5
     
     while AutoFarm.running do
-        print("[ЦИКЛ] Начало нового цикла (x" .. speed .. ")...")
+        -- Определяем текущий макрос
+        local currentData
+        local macroNum
+        local lastUnitTime
         
+        if AutoFarm.currentMacro == 1 then
+            currentData = macro1Data
+            macroNum = 1
+            lastUnitTime = 30 -- последний юнит на 30 секунде
+        else
+            currentData = macro2Data
+            macroNum = 2
+            lastUnitTime = 29 -- последний юнит на 29 секунде (исправлено)
+        end
+        
+        -- Расчет длительности в реальных секундах
+        local gameDuration
+        if speed == 2 then
+            gameDuration = 155 -- 2:35 реальных секунд
+        else
+            gameDuration = 105 -- 1:50 реальных секунд
+        end
+        
+        -- Время последнего юнита в реальных секундах
+        local lastUnitRealTime = lastUnitTime / speed
+        
+        -- Сколько ждать после последнего юнита
+        local waitAfterLastUnit = gameDuration - lastUnitRealTime
+        
+        print("")
+        print("==========================================")
+        print("[ЦИКЛ] Начало нового цикла (x" .. speed .. ")")
+        print("[ЦИКЛ] Используется: МАКРОС " .. macroNum)
+        print("[ЦИКЛ] Юнитов: " .. #currentData)
+        print("[ЦИКЛ] Тайминги: " .. currentData[1].Time .. "с, " .. currentData[2].Time .. "с, " .. currentData[3].Time .. "с, " .. currentData[4].Time .. "с")
+        print("[ЦИКЛ] Последний юнит на: " .. lastUnitTime .. " игровой секунде (" .. string.format("%.1f", lastUnitRealTime) .. " реальных сек)")
+        print("[ЦИКЛ] Ожидание после последнего юнита: " .. string.format("%.1f", waitAfterLastUnit) .. " реальных секунд")
+        print("[ЦИКЛ] Общая длительность: " .. gameDuration .. " сек (" .. math.floor(gameDuration/60) .. ":" .. string.format("%02d", gameDuration%60) .. ")")
+        print("==========================================")
+        print("")
+        
+        -- Устанавливаем скорость
+        remotes.ChangeTickSpeed:InvokeServer(speed)
+        
+        -- Голосуем за сложность
         remotes.PlaceDifficultyVote:InvokeServer(difficulty)
-        print("[ЦИКЛ] Выбрана сложность: Apocalypse")
+        print("[СИСТЕМА] Выбрана сложность: Apocalypse")
         
-        -- Ожидание 5 секунд для компенсации задержки
-        print("[ЦИКЛ] Ожидание 5 секунд (компенсация)...")
-        for i = 1, 5 do
-            if not AutoFarm.running then 
-                print("[ЦИКЛ] Прерывание во время ожидания")
-                return 
-            end
+        -- Базовая задержка перед стартом
+        print("[СИСТЕМА] Базовая задержка " .. baseDelay .. " секунд...")
+        for i = 1, baseDelay do
+            if not AutoFarm.running then return end
             task.wait(1)
         end
         
-        -- Планируем все юниты (ТОЛЬКО 4)
-        for i, p in ipairs(placements) do
-            if p.actualTime > 0 then
-                scheduleTask(p.actualTime, function()
+        -- Размещаем юниты
+        print("[РАЗМЕЩЕНИЕ] Начинаем размещение юнитов (Макрос " .. macroNum .. ")")
+        
+        for i, unitData in ipairs(currentData) do
+            -- Время размещения с учетом базовой задержки
+            local placeTime = unitData.Time - baseDelay
+            
+            if placeTime > 0 then
+                scheduleTask(placeTime, function()
                     if AutoFarm.running then
-                        print("[РАЗМЕЩЕНИЕ] Ставим юнит " .. i .. " (targetTime: " .. p.targetTime .. ")")
-                        placeUnit(p.cf, p.unit, p.pathIndex)
+                        print("[МАКРОС " .. macroNum .. "] Юнит " .. i .. " на " .. unitData.Time .. " сек")
+                        placeUnit(unitData.CF, unitData.Unit, unitData.PathIndex)
                     end
-                end, "unit_" .. i)
-            elseif p.actualTime <= 0 then
-                -- Если время отрицательное, ставим сразу
+                end, "macro" .. macroNum .. "_unit" .. i)
+            elseif placeTime <= 0 then
                 if AutoFarm.running then
-                    print("[РАЗМЕЩЕНИЕ] Ставим юнит " .. i .. " СРАЗУ (targetTime: " .. p.targetTime .. ")")
-                    placeUnit(p.cf, p.unit, p.pathIndex)
+                    print("[МАКРОС " .. macroNum .. "] Юнит " .. i .. " СРАЗУ (тайминг " .. unitData.Time .. " сек)")
+                    placeUnit(unitData.CF, unitData.Unit, unitData.PathIndex)
                 end
             end
         end
         
         -- Ждем завершения игры (реальные секунды)
         if waitAfterLastUnit > 0 then
-            print("[ЦИКЛ] Ожидание конца игры: " .. waitAfterLastUnit .. " реальных секунд")
-            for i = 1, waitAfterLastUnit do
-                if not AutoFarm.running then 
-                    print("[ЦИКЛ] Прерывание во время ожидания конца игры")
-                    return 
+            print("[ОЖИДАНИЕ] До конца игры: " .. string.format("%.1f", waitAfterLastUnit) .. " реальных секунд")
+            local waitSeconds = math.floor(waitAfterLastUnit + 0.5)
+            
+            for i = 1, waitSeconds do
+                if not AutoFarm.running then return end
+                if i % 10 == 0 then
+                    print("[ОЖИДАНИЕ] Осталось ~" .. (waitSeconds - i) .. " сек")
                 end
                 task.wait(1)
             end
         end
         
-        -- Проверяем перед рестартом
-        if not AutoFarm.running then
-            print("[ЦИКЛ] Игра остановлена перед рестартом")
-            break
-        end
+        if not AutoFarm.running then break end
         
         -- Рестарт игры
+        print("[РЕСТАРТ] Перезапускаем игру...")
         remotes.RestartGame:InvokeServer()
-        print("[ЦИКЛ] Игра перезапущена, ожидание 3 секунды...")
         
-        -- Ждем перед началом новой игры
+        -- Меняем макрос для следующей игры
+        if AutoFarm.currentMacro == 1 then
+            AutoFarm.currentMacro = 2
+        else
+            AutoFarm.currentMacro = 1
+        end
+        
+        print("[СЛЕДУЮЩАЯ ИГРА] Будет использован МАКРОС " .. AutoFarm.currentMacro)
+        
+        -- Пауза перед следующим раундом
         for i = 1, 3 do
-            if not AutoFarm.running then
-                print("[ЦИКЛ] Прерывание во время ожидания рестарта")
-                return
-            end
+            if not AutoFarm.running then return end
             task.wait(1)
         end
     end
@@ -331,8 +331,8 @@ local function createSimpleUI()
     screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     
     local mainFrame = Instance.new("Frame")
-    mainFrame.Size = UDim2.new(0, 320, 0, 200)
-    mainFrame.Position = UDim2.new(0.5, -160, 0.5, -100)
+    mainFrame.Size = UDim2.new(0, 350, 0, 250)
+    mainFrame.Position = UDim2.new(0.5, -175, 0.5, -125)
     mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
     mainFrame.BorderSizePixel = 0
     mainFrame.Active = true
@@ -346,7 +346,7 @@ local function createSimpleUI()
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(1, 0, 0, 40)
     title.BackgroundTransparency = 1
-    title.Text = "🌿 АВТОФЕРМА (4 юнита)"
+    title.Text = "🌿 АВТОФЕРМА (2 макроса)"
     title.TextColor3 = Color3.fromRGB(0, 255, 170)
     title.Font = Enum.Font.GothamBold
     title.TextSize = 18
@@ -357,18 +357,18 @@ local function createSimpleUI()
     statusLabel.Size = UDim2.new(1, 0, 0, 25)
     statusLabel.Position = UDim2.new(0, 0, 0, 40)
     statusLabel.BackgroundTransparency = 1
-    statusLabel.Text = "Ферма: Остановлено"
+    statusLabel.Text = "Ферма: Остановлено | Текущий: Макрос 1"
     statusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
     statusLabel.Font = Enum.Font.Gotham
-    statusLabel.TextSize = 12
+    statusLabel.TextSize = 11
     statusLabel.Parent = mainFrame
     
-    -- Информация
+    -- Информация о макросах
     local infoLabel = Instance.new("TextLabel")
-    infoLabel.Size = UDim2.new(1, 0, 0, 60)
+    infoLabel.Size = UDim2.new(1, 0, 0, 100)
     infoLabel.Position = UDim2.new(0, 0, 0, 65)
     infoLabel.BackgroundTransparency = 1
-    infoLabel.Text = "x2: 2,16,22,30 сек (2:15)\nx3: 2,16,22,30 сек (1:30)\nВсе времена - игровые секунды"
+    infoLabel.Text = "МАКРОС 1: 2,16,22,30 сек\nМАКРОС 2: 2,16,23,29 сек\n\nx2: оба 2:35 (155 сек)\nx3: оба 1:50 (110 сек)\nМакросы чередуются каждый раунд"
     infoLabel.TextColor3 = Color3.fromRGB(170, 170, 255)
     infoLabel.Font = Enum.Font.Gotham
     infoLabel.TextSize = 11
@@ -378,7 +378,7 @@ local function createSimpleUI()
     -- Кнопка запуска x2
     local btnStart2x = Instance.new("TextButton")
     btnStart2x.Size = UDim2.new(0.9, 0, 0, 30)
-    btnStart2x.Position = UDim2.new(0.05, 0, 0.60, 0)
+    btnStart2x.Position = UDim2.new(0.05, 0, 0.68, 0)
     btnStart2x.Text = "🚀 ЗАПУСТИТЬ x2"
     btnStart2x.Font = Enum.Font.GothamBold
     btnStart2x.TextSize = 13
@@ -393,7 +393,7 @@ local function createSimpleUI()
     -- Кнопка запуска x3
     local btnStart3x = Instance.new("TextButton")
     btnStart3x.Size = UDim2.new(0.9, 0, 0, 30)
-    btnStart3x.Position = UDim2.new(0.05, 0, 0.75, 0)
+    btnStart3x.Position = UDim2.new(0.05, 0, 0.76, 0)
     btnStart3x.Text = "⚡ ЗАПУСТИТЬ x3"
     btnStart3x.Font = Enum.Font.GothamBold
     btnStart3x.TextSize = 13
@@ -407,11 +407,11 @@ local function createSimpleUI()
     
     -- Кнопка остановки
     local btnStop = Instance.new("TextButton")
-    btnStop.Size = UDim2.new(0.9, 0, 0, 25)
-    btnStop.Position = UDim2.new(0.05, 0, 0.90, 0)
+    btnStop.Size = UDim2.new(0.9, 0, 0, 30)
+    btnStop.Position = UDim2.new(0.05, 0, 0.86, 0)
     btnStop.Text = "🛑 ПОЛНАЯ ОСТАНОВКА"
     btnStop.Font = Enum.Font.GothamBold
-    btnStop.TextSize = 11
+    btnStop.TextSize = 12
     btnStop.TextColor3 = Color3.fromRGB(255, 255, 255)
     btnStop.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
     btnStop.AutoButtonColor = true
@@ -424,23 +424,23 @@ local function createSimpleUI()
     -- Функция обновления статуса
     local function updateStatus(isRunning, speed)
         if isRunning then
-            statusLabel.Text = "Ферма: Работает (x" .. speed .. ")"
+            statusLabel.Text = "Ферма: Работает (x" .. speed .. ") | Текущий: Макрос " .. AutoFarm.currentMacro
             statusLabel.TextColor3 = Color3.fromRGB(0, 255, 100)
             btnStart2x.Visible = false
             btnStart3x.Visible = false
             btnStop.Visible = true
             if speed == 2 then
-                infoLabel.Text = "Юниты: 2,16,22,30 сек\nДлительность: 2:15\nОжидание после 4-го: 140 сек"
+                infoLabel.Text = "МАКРОС 1: 2,16,22,30 сек\nМАКРОС 2: 2,16,23,29 сек\nДлительность: 2:35\nЧередуются каждый раунд"
             else
-                infoLabel.Text = "Юниты: 2,16,22,30 сек\nДлительность: 1:30\nОжидание после 4-го: 80 сек"
+                infoLabel.Text = "МАКРОС 1: 2,16,22,30 сек\nМАКРОС 2: 2,16,23,29 сек\nДлительность: 1:50\nЧередуются каждый раунд"
             end
         else
-            statusLabel.Text = "Ферма: Остановлено"
+            statusLabel.Text = "Ферма: Остановлено | Текущий: Макрос " .. AutoFarm.currentMacro
             statusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
             btnStart2x.Visible = true
             btnStart3x.Visible = true
             btnStop.Visible = false
-            infoLabel.Text = "x2: 2,16,22,30 сек (2:15)\nx3: 2,16,22,30 сек (1:30)\nВсе времена - игровые секунды"
+            infoLabel.Text = "МАКРОС 1: 2,16,22,30 сек\nМАКРОС 2: 2,16,23,29 сек\n\nx2: оба 2:35 (155 сек)\nx3: оба 1:50 (110 сек)\nМакросы чередуются каждый раунд"
         end
     end
     
@@ -454,7 +454,6 @@ local function createSimpleUI()
         AutoFarm.running = true
         updateStatus(true, speed)
         
-        -- Запускаем автоигру в отдельном потоке
         AutoFarm.thread = task.spawn(function()
             local success, error = pcall(function()
                 startAutoGame(speed)
@@ -464,14 +463,12 @@ local function createSimpleUI()
                 warn("❌ Ошибка автоигры:", error)
             end
             
-            -- После завершения автоигры
             AutoFarm.running = false
             updateStatus(false)
             print("[СИСТЕМА] Автоигра завершена")
         end)
     end
     
-    -- Обработчики событий
     btnStart2x.MouseButton1Click:Connect(function()
         if not AutoFarm.running then
             btnStart2x.Text = "🔄 ЗАПУСК..."
@@ -498,39 +495,23 @@ local function createSimpleUI()
         end
     end)
     
-    -- ИСПРАВЛЕННАЯ ФУНКЦИЯ ОСТАНОВКИ
     btnStop.MouseButton1Click:Connect(function()
         if AutoFarm.running then
             btnStop.Text = "⏳ ОСТАНАВЛИВАЕМ..."
             btnStop.BackgroundColor3 = Color3.fromRGB(100, 50, 50)
             
             task.spawn(function()
-                -- Используем pcall для безопасного вызова StopEverything
                 local success, result = pcall(function()
                     return AutoFarm:StopEverything()
                 end)
                 
                 if success then
-                    print("[СИСТЕМА] ✅ Скрипт полностью остановлен и сброшен!")
-                    print("[СИСТЕМА] Запустите скрипт заново для нового запуска")
-                    
-                    -- Удаляем текущий GUI
+                    print("[СИСТЕМА] ✅ Скрипт полностью остановлен!")
                     if screenGui and screenGui.Parent then
                         screenGui:Destroy()
                     end
-                    
-                    -- Сбрасываем глобальные флаги
                     _G.AutoFarmLoaded = false
                     _G.AutoPlacementLoaded = false
-                    
-                    -- Показываем сообщение
-                    if game:GetService("StarterGui"):GetCore("SendNotification") then
-                        game:GetService("StarterGui"):SetCore("SendNotification", {
-                            Title = "Автоферма",
-                            Text = "Скрипт полностью остановлен!\nЗапустите заново.",
-                            Duration = 5
-                        })
-                    end
                 else
                     print("[СИСТЕМА] ⚠️ Ошибка при остановке:", result)
                     btnStop.Text = "🛑 ПОЛНАЯ ОСТАНОВКА"
@@ -550,42 +531,35 @@ end
 
 -- Основная функция
 local function main()
-    -- Проверяем, не запущен ли уже скрипт
     if _G.AutoFarmLoaded then
         warn("⚠️ Скрипт уже запущен! Используйте StopAutoFarm() для остановки")
         return
     end
     
-    -- Очищаем предыдущее состояние
     if _G.AutoFarm and type(_G.AutoFarm.StopEverything) == "function" then
         pcall(function()
             _G.AutoFarm:StopEverything()
         end)
     end
     
-    -- Инициализируем заново
     _G.AutoFarm = {}
     AutoFarm = _G.AutoFarm
     AutoFarm.running = false
     AutoFarm.thread = nil
     AutoFarm.connections = {}
     AutoFarm.scheduledTasks = {}
+    AutoFarm.currentMacro = 1
     
-    -- Метод StopEverything с правильным self
     function AutoFarm:StopEverything()
         print("[СИСТЕМА] Начинаем полную остановку...")
         
-        -- Останавливаем основной поток
         self.running = false
         
         if self.thread then
-            print("[СИСТЕМА] Останавливаем основной поток...")
             local thread = self.thread
             self.thread = nil
         end
         
-        -- Отменяем все запланированные задачи
-        print("[СИСТЕМА] Отменяем запланированные задачи...")
         for i, taskInfo in pairs(self.scheduledTasks) do
             if taskInfo and taskInfo.cancel then
                 pcall(taskInfo.cancel)
@@ -593,8 +567,6 @@ local function main()
         end
         self.scheduledTasks = {}
         
-        -- Отключаем все соединения
-        print("[СИСТЕМА] Отключаем все соединения...")
         for _, connection in pairs(self.connections) do
             if connection and connection.Disconnect then
                 pcall(function()
@@ -604,8 +576,6 @@ local function main()
         end
         self.connections = {}
         
-        -- Удаляем интерфейс
-        print("[СИСТЕМА] Удаляем интерфейс...")
         local playerGui = game.Players.LocalPlayer:FindFirstChild("PlayerGui")
         if playerGui then
             local oldGui = playerGui:FindFirstChild("AutoFarmGUI")
@@ -614,49 +584,45 @@ local function main()
             end
         end
         
-        -- Сбрасываем все флаги
-        print("[СИСТЕМА] Сбрасываем все флаги...")
         _G.AutoPlacementLoaded = false
         _G.AutoFarmLoaded = false
         
         print("[СИСТЕМА] ✅ Полная остановка завершена!")
-        print("[СИСТЕМА] Скрипт полностью остановлен и сброшен")
         print("[СИСТЕМА] Перезапустите скрипт для нового запуска")
         
         return true
     end
     
-    -- Проверяем GUI
     local playerGui = game.Players.LocalPlayer:WaitForChild("PlayerGui")
     if playerGui:FindFirstChild("AutoFarmGUI") then
         playerGui:FindFirstChild("AutoFarmGUI"):Destroy()
     end
     
-    -- Создаем новый интерфейс
     createSimpleUI()
     
-    -- Устанавливаем флаг загрузки
     _G.AutoFarmLoaded = true
     
     print("✅ Автоферма загружена!")
     print("==========================================")
-    print("🌿 GARDEN TOWER DEFENSE - АВТОФЕРМА")
+    print("🌿 GARDEN TOWER DEFENSE - АВТОФЕРМА 2 МАКРОСА")
     print("==========================================")
-    print("🎮 x2 Скорость (4 юнита):")
-    print("• 2 секунды - Юнит 1 (PathIndex: 1)")
-    print("• 16 секунд - Юнит 2 (PathIndex: 2)")
-    print("• 22 секунды - Юнит 3 (PathIndex: 3)")
-    print("• 30 секунд - Юнит 4 (PathIndex: 4)")
-    print("• Ожидание после 4-го юнита: 140 реальных секунд")
-    print("• Общая длительность: 2:15 (140 реальных секунд)")
+    print("🎮 МАКРОС 1 (старые позиции):")
+    print("• 2 секунды - Юнит 1")
+    print("• 16 секунд - Юнит 2")
+    print("• 22 секунды - Юнит 3")
+    print("• 30 секунд - Юнит 4")
     print("")
-    print("⚡ x3 Скорость (4 юнита):")
-    print("• 2 секунды - Юнит 1 (PathIndex: 1)")
-    print("• 16 секунд - Юнит 2 (PathIndex: 2)")
-    print("• 22 секунды - Юнит 3 (PathIndex: 3)")
-    print("• 30 секунд - Юнит 4 (PathIndex: 4)")
-    print("• Ожидание после 4-го юнита: 80 реальных секунд")
-    print("• Общая длительность: 1:30 (90 реальных секунд)")
+    print("🎮 МАКРОС 2 (новые позиции):")
+    print("• 2 секунды - Юнит 1")
+    print("• 16 секунд - Юнит 2")
+    print("• 23 секунды - Юнит 3 (ИЗМЕНЕНО)")
+    print("• 29 секунд - Юнит 4 (ИЗМЕНЕНО)")
+    print("")
+    print("⚡ ОБЩИЕ НАСТРОЙКИ:")
+    print("• x2 скорость: 2:35 (155 реальных секунд)")
+    print("• x3 скорость: 1:50 (110 реальных секунд)")
+    print("• Макросы чередуются каждый раунд")
+    print("• Начинается с Макроса 1")
     print("")
     print("🔄 Управление:")
     print("• 🚀 ЗАПУСТИТЬ x2 - автоигра на x2 скорости")
@@ -681,11 +647,8 @@ function StopAutoFarm()
         if success then
             print("[КОНСОЛЬ] ✅ Скрипт полностью остановлен!")
             print("[КОНСОЛЬ] Запустите скрипт заново для нового запуска")
-            
-            -- Сбрасываем флаги
             _G.AutoFarmLoaded = false
             _G.AutoPlacementLoaded = false
-            
             return true
         else
             warn("[КОНСОЛЬ] ❌ Ошибка при остановке:", result)
