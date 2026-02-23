@@ -15,120 +15,6 @@ AutoFarm.thread = nil
 AutoFarm.connections = {}
 AutoFarm.scheduledTasks = {}
 AutoFarm.currentMacro = 1 -- 1 = первый макрос, 2 = второй макрос
-AutoFarm.antiAfkActive = false -- Флаг для анти-афк
-
--- ========== АНТИ-AFK СИСТЕМА ==========
-local function setupAntiAfk()
-    -- Проверяем, не запущена ли уже анти-афк
-    if AutoFarm.antiAfkActive then
-        print("[АНТИ-AFK] Уже запущена")
-        return
-    end
-    
-    -- Создаем GUI для анти-афк
-    local Rice = Instance.new("ScreenGui")
-    Rice.Name = "Rice"
-    Rice.Parent = game.CoreGui
-    Rice.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    Rice.Enabled = false -- По умолчанию скрываем, но анти-афк будет работать
-    
-    local Main = Instance.new("Frame")
-    Main.Name = "Main"
-    Main.Parent = Rice
-    Main.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-    Main.BorderSizePixel = 0
-    Main.Position = UDim2.new(0.321207851, 0, 0.409807354, 0)
-    Main.Size = UDim2.new(0, 295, 0, 116)
-    Main.Visible = false
-    Main.Active = true
-    Main.Draggable = true
-
-    local Title = Instance.new("TextLabel")
-    Title.Name = "Title"
-    Title.Parent = Main
-    Title.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-    Title.BorderSizePixel = 0
-    Title.Size = UDim2.new(0, 295, 0, 16)
-    Title.Font = Enum.Font.GothamBold
-    Title.Text = "Rice Anti-Afk"
-    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Title.TextScaled = true
-    Title.TextWrapped = true
-
-    local Credits = Instance.new("TextLabel")
-    Credits.Name = "Credits"
-    Credits.Parent = Main
-    Credits.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-    Credits.BorderSizePixel = 0
-    Credits.Position = UDim2.new(0, 0, 0.861901641, 0)
-    Credits.Size = UDim2.new(0, 295, 0, 16)
-    Credits.Font = Enum.Font.GothamBold
-    Credits.Text = "Made by jamess#0007"
-    Credits.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Credits.TextScaled = true
-    Credits.TextWrapped = true
-
-    local Activate = Instance.new("TextButton")
-    Activate.Name = "Activate"
-    Activate.Parent = Main
-    Activate.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    Activate.BorderColor3 = Color3.fromRGB(27, 42, 53)
-    Activate.BorderSizePixel = 0
-    Activate.Position = UDim2.new(0.0330629945, 0, 0.243326917, 0)
-    Activate.Size = UDim2.new(0, 274, 0, 59)
-    Activate.Font = Enum.Font.GothamBold
-    Activate.Text = "Activate"
-    Activate.TextColor3 = Color3.fromRGB(0, 255, 127)
-    Activate.TextSize = 43.000
-    Activate.TextStrokeColor3 = Color3.fromRGB(102, 255, 115)
-
-    local UICorner = Instance.new("UICorner")
-    UICorner.Parent = Activate
-
-    local OpenClose = Instance.new("TextButton")
-    OpenClose.Name = "OpenClose"
-    OpenClose.Parent = Rice
-    OpenClose.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-    OpenClose.Position = UDim2.new(0.353924811, 0, 0.921739101, 0)
-    OpenClose.Size = UDim2.new(0, 247, 0, 35)
-    OpenClose.Font = Enum.Font.GothamBold
-    OpenClose.Text = "Open/Close"
-    OpenClose.TextColor3 = Color3.fromRGB(255, 255, 255)
-    OpenClose.TextSize = 14.000
-
-    local UICorner_2 = Instance.new("UICorner")
-    UICorner_2.Parent = OpenClose
-
-    -- Логика открытия/закрытия
-    local function toggleFrame()
-        Main.Visible = not Main.Visible
-    end
-    
-    OpenClose.MouseButton1Click:Connect(toggleFrame)
-    
-    -- АКТИВАЦИЯ АНТИ-AFK (автоматическая при создании кнопки)
-    local vu = game:GetService("VirtualUser")
-    game:GetService("Players").LocalPlayer.Idled:connect(function()
-        vu:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
-        wait(1)
-        vu:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
-        print("[АНТИ-AFK] Сброс AFK таймера")
-    end)
-    
-    -- Кнопка Activate (на случай если пользователь захочет переактивировать)
-    Activate.MouseButton1Down:connect(function()
-        print("[АНТИ-AFK] Повторная активация защиты")
-    end)
-    
-    -- Сохраняем ссылки на GUI для возможного удаления
-    AutoFarm.antiAfkGui = Rice
-    AutoFarm.antiAfkActive = true
-    
-    print("[АНТИ-AFK] Система защиты от AFK активирована")
-    print("[АНТИ-AFK] Кнопка Open/Close в правом нижнем углу")
-end
-
--- ========== КОНЕЦ АНТИ-AFK ==========
 
 -- Первый макрос - 4 юнита (старые позиции)
 local macro1Data = {
@@ -194,7 +80,7 @@ task.delay(2, function()
     end)
 end)
 
--- Функция полной остановки и сброса (ДОБАВЛЕНО УДАЛЕНИЕ АНТИ-AFK)
+-- Функция полной остановки и сброса
 function AutoFarm:StopEverything()
     print("[СИСТЕМА] Начинаем полную остановку...")
     
@@ -227,7 +113,7 @@ function AutoFarm:StopEverything()
     end
     self.connections = {}
     
-    -- Удаляем интерфейс автофермы
+    -- Удаляем интерфейс
     print("[СИСТЕМА] Удаляем интерфейс...")
     local playerGui = game.Players.LocalPlayer:FindFirstChild("PlayerGui")
     if playerGui then
@@ -235,14 +121,6 @@ function AutoFarm:StopEverything()
         if oldGui then
             oldGui:Destroy()
         end
-    end
-    
-    -- Удаляем анти-афк интерфейс
-    print("[СИСТЕМА] Удаляем анти-афк интерфейс...")
-    if self.antiAfkGui and self.antiAfkGui.Parent then
-        self.antiAfkGui:Destroy()
-        self.antiAfkGui = nil
-        self.antiAfkActive = false
     end
     
     -- Сбрасываем все флаги
@@ -651,7 +529,7 @@ local function createSimpleUI()
     return screenGui
 end
 
--- Основная функция (ДОБАВЛЕН ЗАПУСК АНТИ-AFK)
+-- Основная функция
 local function main()
     if _G.AutoFarmLoaded then
         warn("⚠️ Скрипт уже запущен! Используйте StopAutoFarm() для остановки")
@@ -671,7 +549,6 @@ local function main()
     AutoFarm.connections = {}
     AutoFarm.scheduledTasks = {}
     AutoFarm.currentMacro = 1
-    AutoFarm.antiAfkActive = false
     
     function AutoFarm:StopEverything()
         print("[СИСТЕМА] Начинаем полную остановку...")
@@ -707,11 +584,6 @@ local function main()
             end
         end
         
-        -- Удаляем анти-афк GUI
-        if self.antiAfkGui and self.antiAfkGui.Parent then
-            self.antiAfkGui:Destroy()
-        end
-        
         _G.AutoPlacementLoaded = false
         _G.AutoFarmLoaded = false
         
@@ -728,16 +600,11 @@ local function main()
     
     createSimpleUI()
     
-    -- АВТОМАТИЧЕСКИЙ ЗАПУСК АНТИ-AFK
-    task.spawn(function()
-        setupAntiAfk()
-    end)
-    
     _G.AutoFarmLoaded = true
     
     print("✅ Автоферма загружена!")
     print("==========================================")
-    print("🌿 GARDEN TOWER DEFENSE - АВТОФЕРМА 2 МАКРОСА + АНТИ-AFK")
+    print("🌿 GARDEN TOWER DEFENSE - АВТОФЕРМА 2 МАКРОСА")
     print("==========================================")
     print("🎮 МАКРОС 1 (старые позиции):")
     print("• 2 секунды - Юнит 1")
@@ -756,11 +623,6 @@ local function main()
     print("• x3 скорость: 1:50 (110 реальных секунд)")
     print("• Макросы чередуются каждый раунд")
     print("• Начинается с Макроса 1")
-    print("")
-    print("🛡️ АНТИ-AFK:")
-    print("• Запускается автоматически")
-    print("• Кнопка Open/Close в правом нижнем углу")
-    print("• Защищает от выкидывания за бездействие")
     print("")
     print("🔄 Управление:")
     print("• 🚀 ЗАПУСТИТЬ x2 - автоигра на x2 скорости")
