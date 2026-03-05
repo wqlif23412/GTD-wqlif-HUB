@@ -25,6 +25,95 @@ local humanoid = nil
 local character = nil
 local moveThread = nil
 
+-- Rice Anti-Afk GUI
+local Rice = Instance.new("ScreenGui")
+local Main = Instance.new("Frame")
+local Title = Instance.new("TextLabel")
+local Credits = Instance.new("TextLabel")
+local Activate = Instance.new("TextButton")
+local UICorner = Instance.new("UICorner")
+local OpenClose = Instance.new("TextButton")
+local UICorner_2 = Instance.new("UICorner")
+
+Rice.Name = "Rice"
+Rice.Parent = game.CoreGui
+Rice.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+Main.Name = "Main"
+Main.Parent = Rice
+Main.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+Main.BorderSizePixel = 0
+Main.Position = UDim2.new(0.321207851, 0, 0.409807354, 0)
+Main.Size = UDim2.new(0, 295, 0, 116)
+Main.Visible = false
+Main.Active = true
+Main.Draggable =  true
+
+Title.Name = "Title"
+Title.Parent = Main
+Title.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+Title.BorderSizePixel = 0
+Title.Size = UDim2.new(0, 295, 0, 16)
+Title.Font = Enum.Font.GothamBold
+Title.Text = "Rice Anti-Afk"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextScaled = true
+Title.TextSize = 12.000
+Title.TextWrapped = true
+
+Credits.Name = "Credits"
+Credits.Parent = Main
+Credits.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+Credits.BorderSizePixel = 0
+Credits.Position = UDim2.new(0, 0, 0.861901641, 0)
+Credits.Size = UDim2.new(0, 295, 0, 16)
+Credits.Font = Enum.Font.GothamBold
+Credits.Text = "Made by jamess#0007"
+Credits.TextColor3 = Color3.fromRGB(255, 255, 255)
+Credits.TextScaled = true
+Credits.TextSize = 12.000
+Credits.TextWrapped = true
+
+Activate.Name = "Activate"
+Activate.Parent = Main
+Activate.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+Activate.BorderColor3 = Color3.fromRGB(27, 42, 53)
+Activate.BorderSizePixel = 0
+Activate.Position = UDim2.new(0.0330629945, 0, 0.243326917, 0)
+Activate.Size = UDim2.new(0, 274, 0, 59)
+Activate.Font = Enum.Font.GothamBold
+Activate.Text = "Activate"
+Activate.TextColor3 = Color3.fromRGB(0, 255, 127)
+Activate.TextSize = 43.000
+Activate.TextStrokeColor3 = Color3.fromRGB(102, 255, 115)
+
+-- Автоматическое включение анти-афк
+local vu = game:GetService("VirtualUser")
+game:GetService("Players").LocalPlayer.Idled:connect(function()
+    vu:Button2Down(Vector2.new(0,0),workspace.CurrentCamera.CFrame)
+    wait(1)
+    vu:Button2Up(Vector2.new(0,0),workspace.CurrentCamera.CFrame)
+end)
+
+UICorner.Parent = Activate
+
+OpenClose.Name = "Open/Close"
+OpenClose.Parent = Rice
+OpenClose.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+OpenClose.Position = UDim2.new(0.353924811, 0, 0.921739101, 0)
+OpenClose.Size = UDim2.new(0, 247, 0, 35)
+OpenClose.Font = Enum.Font.GothamBold
+OpenClose.Text = "Open/Close"
+OpenClose.TextColor3 = Color3.fromRGB(255, 255, 255)
+OpenClose.TextSize = 14.000
+
+UICorner_2.Parent = OpenClose
+
+-- Функция для открытия/закрытия GUI
+OpenClose.MouseButton1Click:Connect(function()
+    Main.Visible = not Main.Visible
+end)
+
 -- Базовая позиция каждого юнита (X, Z координаты)
 local basePositions = {
     [1] = {x = -23.0003052, z = 33.6442642},  -- Юнит 1
@@ -149,75 +238,6 @@ local macroData = {
     {Type = "PlaceUnit", CF = "-16.9072189, -85.1852188, 16.9091415, -1, 0, -8.74227766e-08, 0, 1, 0, 8.74227766e-08, 0, -1", PathIndex = 4, Time = 244, Unit = "unit_beehive", ID = 5}
 }
 
--- Функция анти-АФК системы
-local function setupAntiAFK()
-    if not AutoFarm.antiAFKEnabled then return end
-    
-    local VirtualInputManager = game:GetService("VirtualInputManager")
-    local player = game.Players.LocalPlayer
-    
-    local function smoothCameraRotation()
-        local camera = workspace.CurrentCamera
-        local rotationSpeed = 0.5
-        local totalRotation = 0
-        local maxRotation = 30
-        
-        while AutoFarm.running and AutoFarm.antiAFKEnabled do
-            local deltaTime = 0.1
-            local rotationAmount = rotationSpeed * deltaTime
-            
-            if totalRotation >= maxRotation then
-                rotationSpeed = -rotationSpeed
-            elseif totalRotation <= -maxRotation then
-                rotationSpeed = -rotationSpeed
-            end
-            
-            local currentCF = camera.CFrame
-            local newCF = currentCF * CFrame.Angles(0, math.rad(rotationAmount), 0)
-            camera.CFrame = newCF
-            totalRotation = totalRotation + rotationAmount
-            task.wait(deltaTime)
-        end
-    end
-    
-    AutoFarm.antiAFKThread = task.spawn(function()
-        task.spawn(smoothCameraRotation)
-        
-        local actionCounter = 0
-        while AutoFarm.running and AutoFarm.antiAFKEnabled do
-            actionCounter = actionCounter + 1
-            
-            if actionCounter % 30 == 0 then
-                if actionCounter % 60 == 0 then
-                    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Space, false, game)
-                    task.wait(0.05)
-                    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Space, false, game)
-                end
-            end
-            task.wait(1)
-        end
-    end)
-    
-    local function standardAntiAFK()
-        local gc = getconnections or get_signal_connections
-        if gc then
-            for _, v in pairs(gc(player.Idled)) do
-                if v.Function then v:Disable()
-                elseif v.Disconnect then v:Disconnect() end
-            end
-        end
-    end
-    pcall(standardAntiAFK)
-end
-
-local function stopAntiAFK()
-    AutoFarm.antiAFKEnabled = false
-    if AutoFarm.antiAFKThread then
-        task.cancel(AutoFarm.antiAFKThread)
-        AutoFarm.antiAFKThread = nil
-    end
-end
-
 -- Функция для бесконечного авто-рестарта (каждые 3 секунды)
 local function startInfiniteRestartLoop()
     local function restartLoop()
@@ -235,7 +255,6 @@ end
 function AutoFarm:StopEverything()
     print("[СИСТЕМА] Начинаем полную остановку...")
     
-    stopAntiAFK()
     self.running = false
     
     -- Останавливаем бег
@@ -498,7 +517,7 @@ local function createSimpleUI()
     infoLabel.Size = UDim2.new(1, 0, 0, 100)
     infoLabel.Position = UDim2.new(0, 0, 0, 65)
     infoLabel.BackgroundTransparency = 1
-    infoLabel.Text = "5 юнитов\nТолько x3 скорость\nРандомные координаты ±0.5\nПерсонаж БЕЖИТ к каждому юниту\nАвто-рестарт каждые 3 сек"
+    infoLabel.Text = "5 юнитов\nТолько x3 скорость\nРандомные координаты ±0.5\nПерсонаж БЕЖИТ к каждому юниту\nАвто-рестарт каждые 3 сек\nRice Anti-Afk автоматически включен"
     infoLabel.TextColor3 = Color3.fromRGB(170, 170, 255)
     infoLabel.Font = Enum.Font.Gotham
     infoLabel.TextSize = 11
@@ -645,7 +664,6 @@ local function main()
     function AutoFarm:StopEverything()
         print("[СИСТЕМА] Начинаем полную остановку...")
         
-        stopAntiAFK()
         self.running = false
         
         -- Останавливаем бег
@@ -722,7 +740,7 @@ local function main()
     print("• Рандомные координаты ±0.5")
     print("• Персонаж БЕЖИТ к каждому юниту")
     print("• Авто-рестарт: каждые 3 секунды")
-    print("• Анти-АФК активен")
+    print("• Rice Anti-Afk автоматически включен")
     print("")
     print("🔄 Управление:")
     print("• ⚡ ЗАПУСТИТЬ x3 - автоигра")
