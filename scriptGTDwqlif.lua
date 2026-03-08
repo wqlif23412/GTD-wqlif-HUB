@@ -114,13 +114,14 @@ OpenClose.MouseButton1Click:Connect(function()
     Main.Visible = not Main.Visible
 end)
 
--- Базовая позиция каждого юнита (X, Z координаты)
+-- Базовая позиция каждого юнита (X, Z координаты) - НОВЫЙ МАКРОС
 local basePositions = {
-    [1] = {x = -23.0003052, z = 33.6442642},  -- Юнит 1
-    [2] = {x = -19.7339401, z = 34.0921783},  -- Юнит 2
-    [3] = {x = -16.7054443, z = 22.8883896},  -- Юнит 3
-    [4] = {x = -21.192627, z = 21.8793602},   -- Юнит 4
-    [5] = {x = -16.9072189, z = 16.9091415}   -- Юнит 5
+    [1] = {x = -21.6971283, z = 35.2651024},  -- Юнит 1 (Electric Jabber) на 5 сек
+    [2] = {x = -16.0617104, z = 34.657795},   -- Юнит 2 (Electric Jabber) на 24 сек
+    [3] = {x = -23.7096596, z = 24.1806145},  -- Юнит 3 (Electric Jabber) на 30 сек
+    [4] = {x = -13.574295, z = 18.9693451},   -- Юнит 4 (Beehive) на 52 сек
+    [5] = {x = -20.7439041, z = 16.8078041},  -- Юнит 5 (Beehive) на 72 сек
+    [6] = {x = -16.6652946, z = 11.3560066}   -- Юнит 6 (Beehive) на 75 сек
 }
 
 -- Функция для получения персонажа
@@ -224,18 +225,20 @@ local function generateRandomizedCF(baseCF, unitId)
     return newCF, newX, newZ
 end
 
--- Данные для размещения юнитов (только PlaceUnit)
+-- Данные для размещения юнитов (НОВЫЙ МАКРОС - 6 юнитов)
 local macroData = {
-    -- Юнит 1 (Lumberjack) на 19 секунде
-    {Type = "PlaceUnit", CF = "-23.0003052, -85.1852188, 33.6442642, -1, 0, -8.74227766e-08, 0, 1, 0, 8.74227766e-08, 0, -1", PathIndex = 1, Time = 19, Unit = "unit_lumberjack", ID = 1},
-    -- Юнит 2 (Lumberjack) на 45 секунде
-    {Type = "PlaceUnit", CF = "-19.7339401, -85.1852188, 34.0921783, -1, 0, -8.74227766e-08, 0, 1, 0, 8.74227766e-08, 0, -1", PathIndex = 2, Time = 45, Unit = "unit_lumberjack", ID = 2},
-    -- Юнит 3 (Beehive) на 67 секунде
-    {Type = "PlaceUnit", CF = "-16.7054443, -85.1852188, 22.8883896, -1, 0, -8.74227766e-08, 0, 1, 0, 8.74227766e-08, 0, -1", PathIndex = 3, Time = 67, Unit = "unit_beehive", ID = 3},
-    -- Юнит 4 (Beehive) на 230 секунде
-    {Type = "PlaceUnit", CF = "-21.192627, -85.1852188, 21.8793602, -1, 0, -8.74227766e-08, 0, 1, 0, 8.74227766e-08, 0, -1", PathIndex = 4, Time = 230, Unit = "unit_beehive", ID = 4},
-    -- Юнит 5 (Beehive) на 244 секунде
-    {Type = "PlaceUnit", CF = "-16.9072189, -85.1852188, 16.9091415, -1, 0, -8.74227766e-08, 0, 1, 0, 8.74227766e-08, 0, -1", PathIndex = 4, Time = 244, Unit = "unit_beehive", ID = 5}
+    -- Юнит 1 (Electric Jabber) на 5 секунде
+    {Type = "PlaceUnit", CF = "-21.6971283, -85.1852188, 35.2651024, -1, 0, -8.74227766e-08, 0, 1, 0, 8.74227766e-08, 0, -1", PathIndex = 1, Time = 5, Unit = "unit_electric_jabber", ID = 1},
+    -- Юнит 2 (Electric Jabber) на 24 секунде
+    {Type = "PlaceUnit", CF = "-16.0617104, -85.1852188, 34.657795, -1, 0, -8.74227766e-08, 0, 1, 0, 8.74227766e-08, 0, -1", PathIndex = 2, Time = 24, Unit = "unit_electric_jabber", ID = 2},
+    -- Юнит 3 (Electric Jabber) на 30 секунде
+    {Type = "PlaceUnit", CF = "-23.7096596, -85.1852188, 24.1806145, -1, 0, -8.74227766e-08, 0, 1, 0, 8.74227766e-08, 0, -1", PathIndex = 3, Time = 30, Unit = "unit_electric_jabber", ID = 3},
+    -- Юнит 4 (Beehive) на 52 секунде
+    {Type = "PlaceUnit", CF = "-13.574295, -85.1852188, 18.9693451, -1, 0, -8.74227766e-08, 0, 1, 0, 8.74227766e-08, 0, -1", PathIndex = 4, Time = 52, Unit = "unit_beehive", ID = 4},
+    -- Юнит 5 (Beehive) на 72 секунде
+    {Type = "PlaceUnit", CF = "-20.7439041, -85.1852188, 16.8078041, -1, 0, -8.74227766e-08, 0, 1, 0, 8.74227766e-08, 0, -1", PathIndex = 5, Time = 72, Unit = "unit_beehive", ID = 5},
+    -- Юнит 6 (Beehive) на 75 секунде
+    {Type = "PlaceUnit", CF = "-16.6652946, -85.1852188, 11.3560066, -1, 0, -8.74227766e-08, 0, 1, 0, 8.74227766e-08, 0, -1", PathIndex = 4, Time = 75, Unit = "unit_beehive", ID = 6}
 }
 
 -- Функция для бесконечного авто-рестарта (каждые 3 секунды)
@@ -424,6 +427,7 @@ end
 local function startAutoGame()
     local baseDelay = 5
     local speed = 3
+    local lastUnitTime = 75 -- последний юнит на 75 секунде
     
     -- Запускаем периодические функции
     startDifficultyLoop()
@@ -464,8 +468,17 @@ local function startAutoGame()
             end
         end
         
-        -- Ждем немного перед следующей итерацией
-        for i = 1, 5 do
+        -- Ждем пока пройдет время последнего юнита
+        local waitTime = (lastUnitTime / speed) - baseDelay
+        if waitTime > 0 then
+            for i = 1, math.floor(waitTime) do
+                if not AutoFarm.running then return end
+                task.wait(1)
+            end
+        end
+        
+        -- Небольшая пауза перед рестартом
+        for i = 1, 3 do
             if not AutoFarm.running then return end
             task.wait(1)
         end
@@ -514,10 +527,10 @@ local function createSimpleUI()
     
     -- Информация
     local infoLabel = Instance.new("TextLabel")
-    infoLabel.Size = UDim2.new(1, 0, 0, 100)
+    infoLabel.Size = UDim2.new(1, 0, 0, 120)
     infoLabel.Position = UDim2.new(0, 0, 0, 65)
     infoLabel.BackgroundTransparency = 1
-    infoLabel.Text = "5 юнитов\nТолько x3 скорость\nРандомные координаты ±0.5\nПерсонаж БЕЖИТ к каждому юниту\nАвто-рестарт каждые 3 сек\nRice Anti-Afk автоматически включен"
+    infoLabel.Text = "6 юнитов\nТолько x3 скорость\nЮниты 1-3: Electric Jabber (5,24,30 сек)\nЮниты 4-6: Beehive (52,72,75 сек)\nРандомные координаты ±0.5\nПерсонаж БЕЖИТ к каждому юниту\nАвто-рестарт каждые 3 сек\nRice Anti-Afk автоматически включен"
     infoLabel.TextColor3 = Color3.fromRGB(170, 170, 255)
     infoLabel.Font = Enum.Font.Gotham
     infoLabel.TextSize = 11
@@ -527,7 +540,7 @@ local function createSimpleUI()
     -- Кнопка запуска x3
     local btnStart3x = Instance.new("TextButton")
     btnStart3x.Size = UDim2.new(0.9, 0, 0, 30)
-    btnStart3x.Position = UDim2.new(0.05, 0, 0.76, 0)
+    btnStart3x.Position = UDim2.new(0.05, 0, 0.80, 0)
     btnStart3x.Text = "⚡ ЗАПУСТИТЬ x3"
     btnStart3x.Font = Enum.Font.GothamBold
     btnStart3x.TextSize = 13
@@ -542,7 +555,7 @@ local function createSimpleUI()
     -- Кнопка остановки
     local btnStop = Instance.new("TextButton")
     btnStop.Size = UDim2.new(0.9, 0, 0, 30)
-    btnStop.Position = UDim2.new(0.05, 0, 0.86, 0)
+    btnStop.Position = UDim2.new(0.05, 0, 0.90, 0)
     btnStop.Text = "🛑 ПОЛНАЯ ОСТАНОВКА"
     btnStop.Font = Enum.Font.GothamBold
     btnStop.TextSize = 12
@@ -728,12 +741,13 @@ local function main()
     print("==========================================")
     print("🌿 GARDEN TOWER DEFENSE - АВТОФЕРМА")
     print("==========================================")
-    print("🎮 5 юнитов:")
-    print("• 19 сек - Юнит 1 (Lumberjack)")
-    print("• 45 сек - Юнит 2 (Lumberjack)")
-    print("• 67 сек - Юнит 3 (Beehive)")
-    print("• 230 сек - Юнит 4 (Beehive)")
-    print("• 244 сек - Юнит 5 (Beehive)")
+    print("🎮 6 юнитов:")
+    print("• 5 сек - Юнит 1 (Electric Jabber)")
+    print("• 24 сек - Юнит 2 (Electric Jabber)")
+    print("• 30 сек - Юнит 3 (Electric Jabber)")
+    print("• 52 сек - Юнит 4 (Beehive)")
+    print("• 72 сек - Юнит 5 (Beehive)")
+    print("• 75 сек - Юнит 6 (Beehive)")
     print("")
     print("⚡ НАСТРОЙКИ:")
     print("• Только x3 скорость")
